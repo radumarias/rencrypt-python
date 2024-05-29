@@ -1,0 +1,33 @@
+[package]
+name = "rencrypt"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rencrypt"
+crate-type = ["cdylib"]
+
+[profile.dev]
+opt-level = 3
+debug = false
+split-debuginfo = '...'  # Platform-specific.
+strip = "none"
+debug-assertions = false
+overflow-checks = false
+lto = false
+panic = 'unwind'
+incremental = false
+codegen-units = 16
+rpath = false
+
+[dependencies]
+pyo3 = { version = "0.21.2", features = ["extension-module"] }
+ring = "0.17.8"
+rand = "0.8.5"
+rand_core = "0.6.4"
+rand_chacha = "0.3.1"
+#aead = "0.5.2"
+#aes-gcm = "0.10"
+rayon = "1.10.0"
+zeroize = "1.8.1"
