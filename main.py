@@ -18,12 +18,14 @@ def encrypt_buf(block_len):
     enc = REncrypt(cipher, key)
 
     plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
-    # put some plaintext in the buffer
     buf[0] = 42
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
+        plaintext = os.urandom(block_len)
+        buf[:len(plaintext)] = plaintext
+        
         a = datetime.datetime.now()
 
         ciphertext_len = enc.encrypt_buf(buf, plaintext_len, i, aad)
@@ -42,11 +44,12 @@ def encrypt_to_buf(block_len):
     enc = REncrypt(cipher, key)
 
     plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
-    plaintext = bytes(bytearray(plaintext_len))
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
+        plaintext = os.urandom(block_len)
+        
         a = datetime.datetime.now()
 
         ciphertext_len = enc.encrypt_to_buf(plaintext, buf, i, aad)
@@ -64,11 +67,12 @@ def encrypt_from(block_len):
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
-    plaintext = bytes(bytearray(block_len))
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
+        plaintext = os.urandom(block_len)
+        
         a = datetime.datetime.now()
 
         ciphertext = enc.encrypt_from(plaintext, i, aad)
@@ -106,19 +110,53 @@ def decrypt_buf(block_len):
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
-    plaintext_len, buf = enc.get_buf()
-    # put some plaintext in the buffer
+    plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
+    plaintext = os.urandom(plaintext_len)
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
+        buf[:plaintext_len] = plaintext
+        ciphertext_len = enc.encrypt_buf(buf, plaintext_len, 0, aad)
+        
         a = datetime.datetime.now()
-
-        ciphertext_len = enc.encrypt_buf(plaintext_len, i, aad)
-        # do something with the ciphertext from buffer
+        
+        plaintext_len = enc.decrypt_buf(buf, ciphertext_len, 0, aad)
 
         b = datetime.datetime.now()
         delta = b - a
+        
+        assert buf[:plaintext_len] == plaintext
+        
+    deltas.append(delta.total_seconds())
+    average = sum(deltas, 0) / len(deltas)
+    print(f"|{block_len/1024/1024} | {average:.5f}|")
+
+
+def decrypt_to_buf(block_len):
+    cipher = Cipher.Aes256Gcm
+    key = cipher.generate_key()
+    enc = REncrypt(cipher, key)
+
+    plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
+    plaintext = os.urandom(plaintext_len)
+    aad = b"AAD"
+
+    deltas = []
+    for i in range(3):
+        buf[:plaintext_len] = plaintext
+        ciphertext_len = enc.encrypt_buf(buf, plaintext_len, 0, aad)
+        ciphertext = bytes(buf[:ciphertext_len])
+        
+        a = datetime.datetime.now()
+        
+        plaintext_len = enc.decrypt_to_buf(ciphertext, buf, 0, aad)
+
+        b = datetime.datetime.now()
+        delta = b - a
+        
+        assert buf[:plaintext_len] == plaintext
+        
     deltas.append(delta.total_seconds())
     average = sum(deltas, 0) / len(deltas)
     print(f"|{block_len/1024/1024} | {average:.5f}|")
@@ -126,7 +164,7 @@ def decrypt_buf(block_len):
 
 
 # print("| MB    | Seconds |")
-# print("| -------- | ------- |")
+# print("| ----- | ------- |")
 # encrypt_buf(32 * 1024)
 # encrypt_buf(64 * 1024)
 # encrypt_buf(128 * 1024)
@@ -149,7 +187,7 @@ def decrypt_buf(block_len):
 
 # print()
 # print("| MB    | Seconds |")
-# print("| -------- | ------- |")
+# print("| ----- | ------- |")
 # encrypt_to_buf(32 * 1024)
 # encrypt_to_buf(64 * 1024)
 # encrypt_to_buf(128 * 1024)
@@ -172,7 +210,7 @@ def decrypt_buf(block_len):
 
 # print()
 # print("| MB    | Seconds |")
-# print("| -------- | ------- |")
+# print("| ----- | ------- |")
 # encrypt_from(32 * 1024)
 # encrypt_from(64 * 1024)
 # encrypt_from(128 * 1024)
@@ -193,9 +231,55 @@ def decrypt_buf(block_len):
 # encrypt_from(4 * 1024 * 1024 * 1024)
 # encrypt_from(8 * 1024 * 1024 * 1024)
 
+# print()
+# path_in = "/home/gnome/Downloads/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG.mp4"
+# path_out = "/tmp/test.enc"
+# print("| Seconds |")
+# print("| -------- | ------- |")
+# encrypt_file(path_in, path_out)
+
+# print()
+# print("| MB    | Seconds |")
+# print("| ----- | ------- |")
+# decrypt_buf(32 * 1024)
+# decrypt_buf(64 * 1024)
+# decrypt_buf(128 * 1024)
+# decrypt_buf(256 * 1024)
+# decrypt_buf(512 * 1024)
+# decrypt_buf(1024 * 1024)
+# decrypt_buf(2 * 1024 * 1024)
+# decrypt_buf(4 * 1024 * 1024)
+# decrypt_buf(8 * 1024 * 1024)
+# decrypt_buf(16 * 1024 * 1024)
+# decrypt_buf(32 * 1024 * 1024)
+# decrypt_buf(64 * 1024 * 1024)
+# decrypt_buf(128 * 1024 * 1024)
+# decrypt_buf(256 * 1024 * 1024)
+# decrypt_buf(512 * 1024 * 1024)
+# decrypt_buf(1024 * 1024 * 1024)
+# decrypt_buf(2 * 1024 * 1024 * 1024)
+# decrypt_buf(4 * 1024 * 1024 * 1024)
+# decrypt_buf(8 * 1024 * 1024 * 1024)
+
 print()
-path_in = "/home/gnome/Downloads/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG.mp4"
-path_out = "/tmp/test.enc"
-print("| Seconds |")
-print("| -------- | ------- |")
-encrypt_file(path_in, path_out)
+print("| MB    | Seconds |")
+print("| ----- | ------- |")
+decrypt_to_buf(32 * 1024)
+decrypt_to_buf(64 * 1024)
+decrypt_to_buf(128 * 1024)
+decrypt_to_buf(256 * 1024)
+decrypt_to_buf(512 * 1024)
+decrypt_to_buf(1024 * 1024)
+decrypt_to_buf(2 * 1024 * 1024)
+decrypt_to_buf(4 * 1024 * 1024)
+decrypt_to_buf(8 * 1024 * 1024)
+decrypt_to_buf(16 * 1024 * 1024)
+decrypt_to_buf(32 * 1024 * 1024)
+decrypt_to_buf(64 * 1024 * 1024)
+decrypt_to_buf(128 * 1024 * 1024)
+decrypt_to_buf(256 * 1024 * 1024)
+decrypt_to_buf(512 * 1024 * 1024)
+decrypt_to_buf(1024 * 1024 * 1024)
+decrypt_to_buf(2 * 1024 * 1024 * 1024)
+decrypt_to_buf(4 * 1024 * 1024 * 1024)
+decrypt_to_buf(8 * 1024 * 1024 * 1024)

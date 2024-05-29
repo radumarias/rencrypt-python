@@ -189,12 +189,30 @@ impl REncrypt {
         Ok(())
     }
 
-    pub fn decrypt(&mut self, buf: &PyByteArray, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+    pub fn decrypt_buf(&mut self, buf: &PyByteArray, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
         let data = unsafe { buf.as_bytes_mut() };
         let tag_len = self.get_tag_len();
         let nonce_len = self.get_nonce_len();
-        decrypt(&mut data[..len], len, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), tag_len, nonce_len);
+        decrypt(&mut data[..len], block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), tag_len, nonce_len);
         Ok(len - self.overhead())
+    }
+
+    pub fn decrypt_to_buf(&self, ciphertext: &[u8], buf: &PyByteArray, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let data = unsafe { buf.as_bytes_mut() };
+        copy_slice(ciphertext, data);
+        let tag_len = self.get_tag_len();
+        let nonce_len = self.get_nonce_len();
+        decrypt(&mut data[..ciphertext.len()], block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), tag_len, nonce_len);
+        Ok(ciphertext.len() - self.overhead())
+    }
+
+    pub fn decrypt_from<'py>(&self, py: Python<'py>, ciphertext: &[u8], block_index: u64, aad: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+        let mut data = vec![0_u8; ciphertext.len()];
+        copy_slice(ciphertext, &mut data);
+        let tag_len = self.get_tag_len();
+        let nonce_len = self.get_nonce_len();
+        decrypt(&mut data[..ciphertext.len()], block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), tag_len, nonce_len);
+        Ok(PyBytes::new_bound(py, &data[..ciphertext.len() - self.overhead()]))
     }
 
     #[staticmethod]
@@ -305,34 +323,29 @@ fn encrypt(buf: &mut [u8], len: usize, block_index: u64, aad: &[u8],
     // lock here to keep the lock while encrypting
     let mut sealing_key = sealing_key.lock().unwrap();
 
-    // Get a mutable reference to the bytearray's data
-    let data = buf;
-
     let block_index_bytes = block_index.to_le_bytes();
     let mut aad2 = vec![0; aad.len() + 8];
     aad2[..aad.len()].copy_from_slice(aad);
     aad2[aad.len()..].copy_from_slice(&block_index_bytes);
     let aad = Aad::<&[u8]>::from(aad2.as_ref());
 
-    let tag = sealing_key.seal_in_place_separate_tag(aad, &mut data[..len]).unwrap();
+    let tag = sealing_key.seal_in_place_separate_tag(aad, &mut buf[..len]).unwrap();
 
     let tag_start = len;
-    data[tag_start..tag_start + tag_len].copy_from_slice(tag.as_ref().as_ref());
+    buf[tag_start..tag_start + tag_len].copy_from_slice(tag.as_ref().as_ref());
 
     let nonce_start = tag_start + tag_len;
-    data[nonce_start..nonce_start + nonce_len].copy_from_slice(nonce_sequence.lock().unwrap().last_nonce.as_ref().unwrap().as_ref());
+    buf[nonce_start..nonce_start + nonce_len].copy_from_slice(nonce_sequence.lock().unwrap().last_nonce.as_ref().unwrap().as_ref());
 }
 
-fn decrypt<'a>(buf: &'a mut [u8], len: usize, block_index: u64, aad: &[u8], opening_key: Arc<Mutex<OpeningKey<ExistingNonceSequence>>>,
+fn decrypt<'a>(buf: &'a mut [u8], block_index: u64, aad: &[u8], opening_key: Arc<Mutex<OpeningKey<ExistingNonceSequence>>>,
                last_nonce: Arc<Mutex<Option<Vec<u8>>>>,
                tag_len: usize, nonce_len: usize) -> &'a mut [u8] {
     // lock here to keep the lock while decrypting
     let mut opening_key = opening_key.lock().unwrap();
 
-    // Get a mutable reference to the bytearray's data
-    let data = buf;
-
-    last_nonce.lock().unwrap().replace(data[len + tag_len..len + tag_len + nonce_len].to_vec());
+    let len = buf.len();
+    last_nonce.lock().unwrap().replace(buf[len - nonce_len..len].to_vec());
 
     let block_index_bytes = block_index.to_le_bytes();
     let mut aad2 = vec![0; aad.len() + 8];
@@ -340,13 +353,14 @@ fn decrypt<'a>(buf: &'a mut [u8], len: usize, block_index: u64, aad: &[u8], open
     aad2[aad.len()..].copy_from_slice(&block_index_bytes);
     let aad = Aad::<&[u8]>::from(aad2.as_ref());
 
-    let plaintext = opening_key.open_within(aad, &mut data[..len + tag_len], 0..).unwrap();
+    let plaintext = opening_key.open_within(aad, &mut buf[..len - nonce_len], 0..).unwrap();
     plaintext
 }
 
 fn copy_slice(src: &[u8], buf: &mut [u8]) {
     if src.len() < 1024 * 1024 {
-        copy_slice_internal(&mut buf[..src.len()], src);
+        let src_len = src.len();
+        copy_slice_internal(&mut buf[..src_len], src);
     } else {
         copy_slice_concurrently(&mut buf[..src.len()], src, 16 * 1024);
     }
