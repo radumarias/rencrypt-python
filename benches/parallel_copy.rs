@@ -14,9 +14,9 @@ fn parallel_copy_rchunks(source: &[u8], destination: &mut [u8], chunk_size: usiz
 }
 
 fn benchmark_parallel_copy(c: &mut Criterion) {
-    let source: Vec<u8> = vec![0; 1024 * 1024];
-    let mut destination: Vec<u8> = vec![0; 1024 * 1024];
-    let chunk_size = 16 * 1024;
+    let source: Vec<u8> = vec![0; 10_000];
+    let mut destination: Vec<u8> = vec![0; 10_000];
+    let chunk_size = 100;
 
     c.bench_function("parallel_copy_standard", |b| {
         b.iter(|| parallel_copy_standard(black_box(&source), black_box(&mut destination)))
@@ -27,8 +27,5 @@ fn benchmark_parallel_copy(c: &mut Criterion) {
     });
 }
 
-fn main() {
-    criterion_group!(benches, benchmark_parallel_copy);
-    criterion_main!(benches);
-}
-
+criterion_group!(benches, benchmark_parallel_copy);
+criterion_main!(benches);
