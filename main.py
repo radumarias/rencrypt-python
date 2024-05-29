@@ -218,26 +218,27 @@ def decrypt_file(plaintext_file, ciphertext_file):
     enc = REncrypt(cipher, key)
     
     aad = b"AAD"
+    
+    tmp = "/home/gnome/tmp/test.dec"
 
     silentremove(ciphertext_file)
     enc.encrypt_file(plaintext_file, ciphertext_file, aad)
 
     deltas = []
     for _ in range(3):
-        silentremove("/home/gnome/tmp/test.dec")
+        silentremove(tmp)
 
         a = datetime.datetime.now()
 
-        enc.decrypt_file(ciphertext_file, "/home/gnome/tmp/test.dec", aad)
+        enc.decrypt_file(ciphertext_file, tmp, aad)
 
         b = datetime.datetime.now()
         delta = b - a
         deltas.append(delta.total_seconds())
     
-    compare_files_by_hash(plaintext_file, "/home/gnome/tmp/test.dec")
-
+    compare_files_by_hash(plaintext_file, tmp)
     silentremove(ciphertext_file)
-    silentremove("/home/gnome/tmp/test.dec")
+    silentremove(tmp)
 
     average = sum(deltas, 0) / len(deltas)
     print(f"| {average:.5f} |")
