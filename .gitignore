@@ -70,7 +70,3 @@ docs/_build/
 
 # Pyenv
 .python-version
-/.env/lib64/
-/.env/pyvenv.cfg
-/.env/lib64/
-/.env/lib64/
