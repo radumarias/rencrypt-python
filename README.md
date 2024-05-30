@@ -327,9 +327,22 @@ print("bye!")
 
 ## Geting sources from GitHub
 
+```bash
+git clone https://github.com/radumarias/rencrypt-python && cd rencrypt-python
+```
+
 ## Compile and run
 
 ```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+To configure your current shell, you need to source
+the corresponding env file under $HOME/.cargo.
+This is usually done by running one of the following (note the leading DOT):
+```bash
+. "$HOME/.cargo/env"
+```
+```
 python -m venv .env
 source .env/bin/activate
 pip install maturin
