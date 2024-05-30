@@ -199,6 +199,7 @@ plaintext = os.urandom(plaintext_len)
 # enc.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext
 enc.copy_slice(plaintext, buf)
  # encrypt it, this will encrypt in-place the data in the buffer
+ print("encryping...")
 ciphertext_len = enc.encrypt_buf(buf, plaintext_len, 42, aad)
 cipertext = buf[:ciphertext_len]
 # do something with the ciphertext
@@ -206,13 +207,14 @@ cipertext = buf[:ciphertext_len]
 # decrypt it
 # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
 # enc.copy_slice(ciphertext, buf[:len(ciphertext)])
+print("decryping...")
 plaintext_len = enc.decrypt_buf(buf, ciphertext_len, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
+print("bye!")
 ```
 
 You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-
 
 ## Encrypt and decrypt a file
 ```python
@@ -241,12 +243,15 @@ enc = REncrypt(cipher, key)
 aad = b"AAD"
 
 # encrypt it
+print("encryping...")
 enc.encrypt_file(file_in, file_out, aad)
 
 # decrypt it
+print("decryping...")
 enc.decrypt_file(file_out, file_in, aad)
 
 compare_files_by_hash(file_in, file_out)
+print("bye!")
 ```
 
 Currently it's not possible to encrypt/decrypt to the same file. **DON'T DO IT, IT WILL COMPROMSE THE FILE**.
@@ -272,14 +277,17 @@ aad = b"AAD"
 plaintext = bytes(os.urandom(plaintext_len))
 
  # encrypt it, after this will have the ciphertext in the buffer
+ print("encryping...")
 ciphertext_len = enc.encrypt_to_buf(plaintext, buf, 42, aad)
 cipertext = bytes(buf[:ciphertext_len])
 # do something with the ciphertext
 
 # decrypt it
+print("decryping...")
 plaintext_len = enc.decrypt_to_buf(cipertext, buf, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
+print("bye!")
 ```
 
 ## Encrypt and decrypt from an arbitrary plaintext without using the buffer
@@ -300,11 +308,14 @@ aad = b"AAD"
 plaintext = os.urandom(4096)
 
  # encrypt it, this will return the ciphertext
+ print("encryping...")
 ciphertext = enc.encrypt_from(plaintext, 42, aad)
 
 # decrypt it
+print("decryping...")
 plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
 assert plaintext == plaintext2
+print("bye!")
 ```
 
 # Future plans

@@ -13,8 +13,11 @@ aad = b"AAD"
 plaintext = os.urandom(4096)
 
  # encrypt it, this will return the ciphertext
+print("encryping...")
 ciphertext = enc.encrypt_from(plaintext, 42, aad)
 
 # decrypt it
+print("decryping...")
 plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
 assert plaintext == plaintext2
+print("bye!")

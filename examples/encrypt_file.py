@@ -24,9 +24,12 @@ enc = REncrypt(cipher, key)
 aad = b"AAD"
 
 # encrypt it
+print("encryping...")
 enc.encrypt_file(file_in, file_out, aad)
 
 # decrypt it
+print("decryping...")
 enc.decrypt_file(file_out, file_in, aad)
 
 compare_files_by_hash(file_in, file_out)
+print("bye!")
