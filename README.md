@@ -1,6 +1,6 @@
 # REncrypt
 
-A Python encryption library implemented in Rust. It supports `AEAD` with `AES-GCM` and `ChaCha20Poly1305`.  
+A Python encryption library implemented in Rust. It supports `AEAD` with `AES-GCM` and `ChaCha20Poly1305`. It uses [ring](https://crates.io/crates/ring) to handle encryption.  
 If offers slightly higher speed compared to other Python libs. The API tries to be easy to use but it's more optimized for speed.
 
 So if you want to achieve the highest possible encryption speed, consider giving it a try.
@@ -184,7 +184,7 @@ from rencrypt import REncrypt, Cipher
 import os
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.Aes256Gcm
+cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 
@@ -208,10 +208,9 @@ cipertext = buf[:ciphertext_len]
 # enc.copy_slice(ciphertext, buf[:len(ciphertext)])
 plaintext_len = enc.decrypt_buf(buf, ciphertext_len, 42, aad)
 plaintext2 = buf[:plaintext_len]
-print(len(plaintext))
-print(len(plaintext2))
 assert plaintext == plaintext2
 ```
+
 You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 
 
@@ -235,7 +234,7 @@ file_in = "/tmp/fin"
 file_out = "/tmp/fout.enc"
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.Aes256Gcm
+cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 
@@ -261,7 +260,7 @@ from rencrypt import REncrypt, Cipher
 import os
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.Aes256Gcm
+cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 
@@ -281,10 +280,9 @@ cipertext = bytes(buf[:ciphertext_len])
 plaintext_len = enc.decrypt_to_buf(cipertext, buf, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
-# do something with the plaintext
 ```
 
-## Encrypt and decrypt from an arbitraty plaintext without the buffer
+## Encrypt and decrypt from an arbitrary plaintext without using the buffer
 
 This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
 
@@ -292,21 +290,30 @@ This is the slowest option, especially for large plaintext, because it allocates
 from rencrypt import REncrypt, Cipher
 import os
 
-# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.Aes256Gcm
+# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
+cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 
 aad = b"AAD"
 
-plaintext = os.urandom(plaintext_len)
+plaintext = os.urandom(4096)
 
  # encrypt it, this will return the ciphertext
 ciphertext = enc.encrypt_from(plaintext, 42, aad)
-ciphertext=bytes(ciphertext)
-# do something with the ciphertext
 
 #decrypt it
-plaintext = enc.decrypt_from(cipertext, 42, aad)
-# do something with the plaintext
+plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
+assert plaintext == plaintext2
 ```
+
+# Future plans
+
+- Add more `AES` ciphers like `AES128GCM` and `AES-GCM-SIV`
+- Ability to use other crates to handle encryption like [RustCrypto](https://github.com/RustCrypto/traits)
+- Maybe add support for `RSA` and `Elliptic-curve cryptography`
+- Saving and loading keys from file
+
+# Contribution
+
+This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known and audited library, so in principle it should offer the same security level.

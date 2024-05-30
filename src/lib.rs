@@ -25,7 +25,7 @@ pub enum Provider {
 #[derive(Debug, Clone, Copy)]
 pub enum Cipher {
     ChaCha20Poly1305,
-    Aes256Gcm,
+    AES256GCM,
 }
 
 #[pymethods]
@@ -37,7 +37,7 @@ impl Cipher {
     pub fn key_len(&self) -> usize {
         match self {
             Cipher::ChaCha20Poly1305 => CHACHA20_POLY1305.key_len(),
-            Cipher::Aes256Gcm => AES_256_GCM.key_len(),
+            Cipher::AES256GCM => AES_256_GCM.key_len(),
         }
     }
 
@@ -48,7 +48,7 @@ impl Cipher {
     pub const fn max_plaintext_len(&self) -> usize {
         match self {
             Cipher::ChaCha20Poly1305 => (2_usize.pow(32) - 1) * 64,
-            Cipher::Aes256Gcm => (2_usize.pow(39) - 256) / 8,
+            Cipher::AES256GCM => (2_usize.pow(39) - 256) / 8,
         }
     }
 
@@ -360,7 +360,7 @@ fn copy_slice_concurrently(dst: &mut [u8], src: &[u8], chunk_size: usize) {
 fn get_ring_algorithm(cipher: Cipher) -> &'static ring::aead::Algorithm {
     match cipher {
         Cipher::ChaCha20Poly1305 => &CHACHA20_POLY1305,
-        Cipher::Aes256Gcm => &AES_256_GCM,
+        Cipher::AES256GCM => &AES_256_GCM,
     }
 }
 

@@ -26,7 +26,7 @@ def silentremove(filename):
 
 
 def encrypt_buf(block_len):
-    cipher = Cipher.Aes256Gcm
+    cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
@@ -52,7 +52,7 @@ def encrypt_buf(block_len):
 
 
 def encrypt_to_buf(block_len):
-    cipher = Cipher.Aes256Gcm
+    cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
@@ -77,7 +77,7 @@ def encrypt_to_buf(block_len):
 
 
 def encrypt_from(block_len):
-    cipher = Cipher.Aes256Gcm
+    cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
@@ -101,7 +101,7 @@ def encrypt_from(block_len):
 
 
 def encrypt_file(path_in, path_out):
-    cipher = Cipher.Aes256Gcm
+    cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
     
@@ -126,7 +126,7 @@ def encrypt_file(path_in, path_out):
 
 
 def decrypt_buf(block_len):
-    cipher = Cipher.Aes256Gcm
+    cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
@@ -154,7 +154,7 @@ def decrypt_buf(block_len):
 
 
 def decrypt_to_buf(block_len):
-    cipher = Cipher.Aes256Gcm
+    cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
@@ -183,7 +183,7 @@ def decrypt_to_buf(block_len):
 
 
 def decrypt_from(block_len):
-    cipher = Cipher.Aes256Gcm
+    cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
@@ -212,7 +212,7 @@ def decrypt_from(block_len):
 
 
 def decrypt_file(plaintext_file, ciphertext_file):
-    cipher = Cipher.Aes256Gcm
+    cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
     

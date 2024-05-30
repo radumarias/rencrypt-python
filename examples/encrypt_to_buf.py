@@ -5,7 +5,7 @@ from rencrypt import REncrypt, Cipher
 import os
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.Aes256Gcm
+cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 

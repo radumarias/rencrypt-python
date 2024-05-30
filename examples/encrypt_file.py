@@ -17,7 +17,7 @@ def compare_files_by_hash(file1, file2):
 file_in = "/tmp/fin"
 file_out = "/tmp/fout.enc"
 
-cipher = Cipher.Aes256Gcm
+cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 
