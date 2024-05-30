@@ -173,7 +173,7 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 # Examples
 
-You can see examples in `examples` directory and in `main.py` which also has some benchmarks. Here are few simple examples:
+You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and in [main.py](https://github.com/radumarias/rencrypt-python/tree/main/main.py) which has some benchmarks. Here are few simple examples:
 
 ## Encrypt and decrypt a buffer in memory
 
