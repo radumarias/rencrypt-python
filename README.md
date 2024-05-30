@@ -321,6 +321,7 @@ assert plaintext == plaintext2
 ```bash
 python -m venv .env
 source .env/bin/activate
+pip install maturin
 maturin develop
 python examples/encrypt_buf.py
 ```
