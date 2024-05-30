@@ -317,6 +317,25 @@ plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
 assert plaintext == plaintext2
 print("bye!")
 ```
+# Building from source
+
+## Browser
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/radumarias/rencrypt-python)
+
+[![Open Rustlings On Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/?repo=radumarias%2Frencrypt-python&ref=main)
+
+## Geting sources from GitHub
+
+## Compile and run
+
+```bash
+python -m venv .env
+source .env/bin/activate
+pip install maturin
+maturin develop
+python examples/encrypt_buf.py
+```
 
 # Future plans
 
