@@ -1,4 +1,4 @@
-# This is the most performant way to use it as it will not allocate new memory for plaintext and ciphertext.
+# This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
 from rencrypt import REncrypt, Cipher
 import os
@@ -14,7 +14,7 @@ plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
 aad = b"AAD"
 
 # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
-# but for the sake of example we will allocate the data
+# but for the sake of example we will allocate and copy the data
 plaintext = os.urandom(plaintext_len)
 # enc.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext
 enc.copy_slice(plaintext, buf)
