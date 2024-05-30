@@ -18,13 +18,13 @@ plaintext = bytes(os.urandom(plaintext_len))
 
  # encrypt it, after this will have the ciphertext in the buffer
 print("encryping...")
-ciphertext_len = enc.encrypt_to_buf(plaintext, buf, 42, aad)
+ciphertext_len = enc.encrypt_into_buf(plaintext, buf, 42, aad)
 cipertext = bytes(buf[:ciphertext_len])
 # do something with the ciphertext
 
 # decrypt it
 print("decryping...")
-plaintext_len = enc.decrypt_to_buf(cipertext, buf, 42, aad)
+plaintext_len = enc.decrypt_into_buf(cipertext, buf, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
 print("bye!")
