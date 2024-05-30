@@ -347,7 +347,7 @@ python -m venv .env
 source .env/bin/activate
 pip install maturin
 maturin develop
-python examples/encrypt_buf.py
+python python main.py
 ```
 
 # Future plans
