@@ -303,12 +303,12 @@ encrypt_from(256 * 1024 * 1024)
 encrypt_from(512 * 1024 * 1024)
 encrypt_from(1024 * 1024 * 1024)
 
-print("\n encrypt_file")
-path_in = "/home/gnome/tmp/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG.mp4"
-path_out = "/home/gnome/tmp/test.enc"
-print("| Seconds |")
-print("| -------- |")
-encrypt_file(path_in, path_out)
+# print("\n encrypt_file")
+# path_in = "/home/gnome/tmp/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG.mp4"
+# path_out = "/home/gnome/tmp/test.enc"
+# print("| Seconds |")
+# print("| -------- |")
+# encrypt_file(path_in, path_out)
 
 print("\n decrypt_buf")
 print("| MB    | Seconds |")
@@ -370,9 +370,9 @@ decrypt_from(256 * 1024 * 1024)
 decrypt_from(512 * 1024 * 1024)
 decrypt_from(1024 * 1024 * 1024)
 
-print("\n decrypt_file")
-path_in = "/home/gnome/tmp/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG.mp4"
-path_out = "/home/gnome/tmp/test.enc"
-print("| Seconds |")
-print("| -------- |")
-decrypt_file(path_in, path_out)
+# print("\n decrypt_file")
+# path_in = "/home/gnome/tmp/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG.mp4"
+# path_out = "/home/gnome/tmp/test.enc"
+# print("| Seconds |")
+# print("| -------- |")
+# decrypt_file(path_in, path_out)
