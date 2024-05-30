@@ -314,6 +314,6 @@ assert plaintext == plaintext2
 - Maybe add support for `RSA` and `Elliptic-curve cryptography`
 - Saving and loading keys from file
 
-# Contribution
+# Considerations
 
-This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known and audited library, so in principle it should offer the same security level.
+This lib hasn't been audited, but it mostly wraps `ring` crate which is a well knownlibrary, so in principle it should offer the same security level.
