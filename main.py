@@ -31,13 +31,12 @@ def encrypt_buf(block_len):
     enc = REncrypt(cipher, key)
 
     plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
-    buf[0] = 42
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
         plaintext = os.urandom(block_len)
-        buf[: len(plaintext)] = plaintext
+        enc.copy_slice(plaintext, buf[:len(plaintext)])
 
         a = datetime.datetime.now()
 

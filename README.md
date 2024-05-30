@@ -170,3 +170,143 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
         </tr>
     </tbody>
 </table>
+
+# Examples
+
+You can see examples in `examples` directory and in `main.py` which also has some benchmarks. Here are few simple examples:
+
+## Encrypt and decrypt a buffer in memory
+
+This is the most performant way to use it as it will not allocate new memory for plaintext and ciphertext.
+
+```python
+from rencrypt import REncrypt, Cipher
+import os
+
+# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
+cipher = Cipher.Aes256Gcm
+key = cipher.generate_key()
+enc = REncrypt(cipher, key)
+
+# we get a buffer based in block len 4096 plaintext
+# the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
+plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
+aad = b"AAD"
+
+# put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
+# but for the sake of example we will allocate the data
+plaintext = os.urandom(plaintext_len)
+# enc.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext
+enc.copy_slice(plaintext, buf)
+ # encrypt it, this will encrypt in-place the data in the buffer
+ciphertext_len = enc.encrypt_buf(buf, plaintext_len, 42, aad)
+cipertext = buf[:ciphertext_len]
+# do something with the ciphertext
+
+#decrypt it
+# if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
+# enc.copy_slice(ciphertext, buf[:len(ciphertext)])
+plaintext_len = enc.decrypt_buf(buf, ciphertext_len, 42, aad)
+plaintext2 = buf[:plaintext_len]
+print(len(plaintext))
+print(len(plaintext2))
+assert plaintext == plaintext2
+```
+You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
+
+
+## Encrypt and decrypt a file
+```python
+from rencrypt import REncrypt, Cipher
+import hashlib
+
+def calculate_file_hash(file_path):
+    hash_algo = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_algo.update(chunk)
+    return hash_algo.hexdigest()
+
+
+def compare_files_by_hash(file1, file2):
+    return calculate_file_hash(file1) == calculate_file_hash(file2)
+
+file_in = "/tmp/fin"
+file_out = "/tmp/fout.enc"
+
+# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
+cipher = Cipher.Aes256Gcm
+key = cipher.generate_key()
+enc = REncrypt(cipher, key)
+
+aad = b"AAD"
+
+# encrypt it
+enc.encrypt_file(file_in, file_out, aad)
+
+# decrypt it
+enc.decrypt_file(file_out, file_in, aad)
+
+compare_files_by_hash(file_in, file_out)
+```
+
+Currently it's not possible to encrypt/decrypt to the same file. **DON'T DO IT, IT WILL COMPROMSE THE FILE**.
+
+## Encrypt and decrypt from an arbitrary plaintext into the buffer
+
+This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some bytes from somewhere else.
+
+```python
+from rencrypt import REncrypt, Cipher
+import os
+
+# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
+cipher = Cipher.Aes256Gcm
+key = cipher.generate_key()
+enc = REncrypt(cipher, key)
+
+# we get a buffer based in block len 4096 plaintext
+# the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
+plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
+aad = b"AAD"
+
+plaintext = bytes(os.urandom(plaintext_len))
+
+ # encrypt it, after this will have the ciphertext in the buffer
+ciphertext_len = enc.encrypt_to_buf(plaintext, buf, 42, aad)
+cipertext = bytes(buf[:ciphertext_len])
+# do something with the ciphertext
+
+#decrypt it
+plaintext_len = enc.decrypt_to_buf(cipertext, buf, 42, aad)
+plaintext2 = buf[:plaintext_len]
+assert plaintext == plaintext2
+# do something with the plaintext
+```
+
+## Encrypt and decrypt from an arbitraty plaintext without the buffer
+
+This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
+
+```python
+from rencrypt import REncrypt, Cipher
+import os
+
+# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
+cipher = Cipher.Aes256Gcm
+key = cipher.generate_key()
+enc = REncrypt(cipher, key)
+
+aad = b"AAD"
+
+plaintext = os.urandom(plaintext_len)
+
+ # encrypt it, this will return the ciphertext
+ciphertext = enc.encrypt_from(plaintext, 42, aad)
+ciphertext=bytes(ciphertext)
+# do something with the ciphertext
+
+#decrypt it
+plaintext = enc.decrypt_from(cipertext, 42, aad)
+# do something with the plaintext
+```
