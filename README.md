@@ -196,7 +196,7 @@ aad = b"AAD"
 # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
 # but for the sake of example we will allocate and copy the data
 plaintext = os.urandom(plaintext_len)
-# enc.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext
+# enc.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
 enc.copy_slice(plaintext, buf)
  # encrypt it, this will encrypt in-place the data in the buffer
  print("encryping...")
@@ -217,6 +217,9 @@ print("bye!")
 You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 
 ## Encrypt and decrypt a file
+
+It encrypts and decrypts the file in parallel.
+
 ```python
 from rencrypt import REncrypt, Cipher
 import hashlib

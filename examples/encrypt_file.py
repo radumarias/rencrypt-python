@@ -1,3 +1,4 @@
+# It encrypts and decrypts the file in parallel.
 # Currently it's not possible to encrypt/decrypt to the same file. **DON'T DO IT, IT WILL COMPROMSE THE FILE**.
 
 from rencrypt import REncrypt, Cipher
