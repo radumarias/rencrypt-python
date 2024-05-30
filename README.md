@@ -350,7 +350,7 @@ python -m venv .env
 source .env/bin/activate
 pip install maturin
 maturin develop
-python python main.py
+python main.py
 ```
 
 # Future plans
