@@ -352,7 +352,7 @@ python python main.py
 
 # Future plans
 
-- Add more `AES` ciphers like `AES128GCM` and `AES-GCM-SIV`
+- Add more `AES` ciphers like `AES128-GCM` and `AES-GCM-SIV`
 - Ability to use other crates to handle encryption like [RustCrypto](https://github.com/RustCrypto/traits)
 - Maybe add support for `RSA` and `Elliptic-curve cryptography`
 - Saving and loading keys from file
