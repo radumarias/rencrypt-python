@@ -327,6 +327,10 @@ print("bye!")
 
 ## Geting sources from GitHub
 
+```bash
+git clone https://github.com/radumarias/rencrypt-python && cd rencrypt-python
+```
+
 ## Compile and run
 
 ```bash
