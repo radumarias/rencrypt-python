@@ -359,4 +359,4 @@ python python main.py
 
 # Considerations
 
-This lib hasn't been audited, but it mostly wraps `ring` crate which is a well knownlibrary, so in principle it should offer the same security level.
+This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle it should offer the same level of security.
