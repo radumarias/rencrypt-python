@@ -177,7 +177,7 @@ You can see more in [examples](https://github.com/radumarias/rencrypt-python/tre
 
 ## Encrypt and decrypt a buffer in memory
 
-This is the most performant way to use it as it will not allocate new memory for plaintext and ciphertext.
+This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
 ```python
 from rencrypt import REncrypt, Cipher
@@ -347,16 +347,16 @@ python -m venv .env
 source .env/bin/activate
 pip install maturin
 maturin develop
-python examples/encrypt_buf.py
+python python main.py
 ```
 
 # Future plans
 
-- Add more `AES` ciphers like `AES128GCM` and `AES-GCM-SIV`
+- Add more `AES` ciphers like `AES128-GCM` and `AES-GCM-SIV`
 - Ability to use other crates to handle encryption like [RustCrypto](https://github.com/RustCrypto/traits)
 - Maybe add support for `RSA` and `Elliptic-curve cryptography`
 - Saving and loading keys from file
 
 # Considerations
 
-This lib hasn't been audited, but it mostly wraps `ring` crate which is a well knownlibrary, so in principle it should offer the same security level.
+This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle it should offer the same level of security.
