@@ -14,6 +14,12 @@ use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NONCE_LEN
 use ring::error::Unspecified;
 use zeroize::Zeroize;
 
+// 128B seems to be the optimal block size that offers the max MB/s speed for encryption,
+// on benchmarks that seem to be the case.
+// We performed 10.000 encryption operations for each size varying from 64KB to 1GB,
+// after 8MB it tops up to similar values.
+const FILE_BLOCK_LEN: usize = 128 * 1024;
+
 #[pyclass]
 #[derive(Debug, Clone, Copy)]
 pub enum Provider {
@@ -71,8 +77,6 @@ pub struct REncrypt {
     key: Vec<u8>,
 }
 
-const FILE_BLOCK_LEN: usize = 128 * 1024;
-
 #[pymethods]
 impl REncrypt {
     #[new]
@@ -104,7 +108,7 @@ impl REncrypt {
     }
 
     // #[pyo3(signature = (buf = [42], len = 42, aad = &[42]))]
-    pub fn encrypt_buf<'py>(&self, buf: &Bound<'py, PyByteArray>, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+    pub fn encrypt<'py>(&self, buf: &Bound<'py, PyByteArray>, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
         let data = unsafe { buf.as_bytes_mut() };
         let tag_len = self.get_tag_len();
         let nonce_len = self.get_nonce_len();
@@ -112,7 +116,7 @@ impl REncrypt {
         Ok(len + self.overhead())
     }
 
-    pub fn encrypt_to_buf<'py>(&self, plaintext: &[u8], buf: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+    pub fn encrypt_into<'py>(&self, plaintext: &[u8], buf: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
         let data = unsafe { buf.as_bytes_mut() };
         copy_slice(plaintext, data);
         let tag_len = self.get_tag_len();
@@ -185,14 +189,60 @@ impl REncrypt {
         Ok(())
     }
 
-    pub fn decrypt_buf<'py>(&mut self, buf: &Bound<'py, PyByteArray>, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+    pub fn encrypt_seq(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
+        let tag_len = self.get_tag_len();
+        let nonce_len = self.get_nonce_len();
+        let cipher = self.cipher;
+        let key = &self.key;
+
+        let overhead = self.overhead();
+        let block_len = FILE_BLOCK_LEN;
+
+        let fin = File::open(src).unwrap();
+        let file_size = fin.metadata().unwrap().len();
+
+        let mut buffer = vec![0u8; block_len + overhead];
+        let mut src_file = BufReader::new(File::open(src).expect("Unable to open source file"));
+        let mut dst_file = BufWriter::new(OpenOptions::new().write(true).open(dst).expect("Unable to open destination file"));
+        let (sealing_key, nonce_sequence) = create_sealing_key(cipher, &key);
+        let sealing_key = Arc::new(Mutex::new(sealing_key));
+        let mut block_index = 0;
+        loop {
+            let len = loop {
+                let mut read = 0;
+                let len = src_file.read(&mut buffer[read..]).expect("Unable to read chunk from source file");
+                if len == 0 {
+                    break read;
+                }
+                read += len;
+            };
+            if len == 0 {
+                break;
+            }
+            // encrypt
+            encrypt(&mut buffer, len, block_index, &aad, sealing_key.clone(), nonce_sequence.clone(), tag_len, nonce_len);
+            // write
+            dst_file.write_all(&buffer).expect("Unable to write chunk to destination file");
+            block_index += 1;
+        }
+        dst_file.flush().expect("Unable to flush destination file");
+        buffer.zeroize();
+
+        let fout = File::open(dst).unwrap();
+        fout.sync_data().unwrap();
+        File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
+
+        Ok(())
+    }
+
+    pub fn decrypt<'py>(&mut self, buf: &Bound<'py, PyByteArray>, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
         let data = unsafe { buf.as_bytes_mut() };
         let nonce_len = self.get_nonce_len();
         decrypt(&mut data[..len], block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce_len);
         Ok(len - self.overhead())
     }
 
-    pub fn decrypt_to_buf<'py>(&self, ciphertext: &[u8], buf: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+    pub fn decrypt_into<'py>(&self, ciphertext: &[u8], buf: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
         let data = unsafe { buf.as_bytes_mut() };
         copy_slice(ciphertext, data);
         let nonce_len = self.get_nonce_len();

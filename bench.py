@@ -82,12 +82,12 @@ def silentremove(filename):
             raise  # re-raise exception if a different error occurred
 
 
-def encrypt_buf(block_len):
+def encrypt(block_len):
     cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
-    plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
+    plaintext_len, _, buf = enc.create_buf(block_len)
     aad = b"AAD"
 
     deltas = []
@@ -97,8 +97,7 @@ def encrypt_buf(block_len):
 
         a = datetime.datetime.now()
 
-        ciphertext_len = enc.encrypt_buf(buf, plaintext_len, i, aad)
-        # do something with the ciphertext from buffer
+        enc.encrypt(buf, plaintext_len, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -107,13 +106,37 @@ def encrypt_buf(block_len):
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
+def encrypt_speed_per_mb(block_len):
+    cipher = Cipher.AES256GCM
+    key = cipher.generate_key()
+    enc = REncrypt(cipher, key)
+
+    plaintext_len, _, buf = enc.create_buf(block_len)
+    aad = b"AAD"
+
+    deltas = []
+    for i in range(42):
+        plaintext = os.urandom(block_len)
+        enc.copy_slice(plaintext, buf[: len(plaintext)])
+
+        a = datetime.datetime.now()
+
+        enc.encrypt(buf, plaintext_len, i, aad)
+
+        b = datetime.datetime.now()
+        delta = b - a
+        deltas.append(delta.total_seconds())
+
+    average = sum(deltas, 0) / len(deltas)
+    print(f"| {block_len/1024/1024} | {block_len/1024/1024/average} |")
+
 
 def encrypt_into_buf(block_len):
     cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
 
-    plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
+    plaintext_len, _, buf = enc.create_buf(block_len)
     aad = b"AAD"
 
     deltas = []
@@ -122,8 +145,7 @@ def encrypt_into_buf(block_len):
 
         a = datetime.datetime.now()
 
-        ciphertext_len = enc.encrypt_into_buf(plaintext, buf, i, aad)
-        # do something with the ciphertext from buffer
+        enc.encrypt_into_buf(plaintext, buf, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -146,8 +168,7 @@ def encrypt_from(block_len):
 
         a = datetime.datetime.now()
 
-        ciphertext = enc.encrypt_from(plaintext, i, aad)
-        # do something with the ciphertext
+        enc.encrypt_from(plaintext, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -183,7 +204,7 @@ def encrypt_file(path_in, path_out):
     print(f"| {(filesize / 1024 / 1024):.5g} | {average:.5f} |")
 
 
-def decrypt_buf(block_len):
+def decrypt(block_len):
     cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
@@ -195,11 +216,11 @@ def decrypt_buf(block_len):
     deltas = []
     for i in range(3):
         buf[:plaintext_len] = plaintext
-        ciphertext_len = enc.encrypt_buf(buf, plaintext_len, i, aad)
+        ciphertext_len = enc.encrypt(buf, plaintext_len, i, aad)
 
         a = datetime.datetime.now()
 
-        plaintext_len = enc.decrypt_buf(buf, ciphertext_len, i, aad)
+        plaintext_len = enc.decrypt(buf, ciphertext_len, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -223,7 +244,7 @@ def decrypt_into_buf(block_len):
     deltas = []
     for i in range(3):
         buf[:plaintext_len] = plaintext
-        ciphertext_len = enc.encrypt_buf(buf, plaintext_len, i, aad)
+        ciphertext_len = enc.encrypt(buf, plaintext_len, i, aad)
         ciphertext = bytes(buf[:ciphertext_len])
 
         a = datetime.datetime.now()
@@ -250,7 +271,7 @@ def decrypt_from(block_len):
     aad = b"AAD"
 
     buf[:plaintext_len] = plaintext
-    ciphertext_len = enc.encrypt_buf(buf, plaintext_len, 0, aad)
+    ciphertext_len = enc.encrypt(buf, plaintext_len, 0, aad)
     ciphertext = bytes(buf[:ciphertext_len])
 
     deltas = []
@@ -301,25 +322,25 @@ def decrypt_file(plaintext_file, ciphertext_file):
     print(f"| {average:.5f} |")
 
 
-# print("encrypt_buf")
+# print("encrypt")
 # print("| MB    | Seconds |")
 # print("| ----- | ------- |")
-# encrypt_buf(32 * 1024)
-# encrypt_buf(64 * 1024)
-# encrypt_buf(128 * 1024)
-# encrypt_buf(256 * 1024)
-# encrypt_buf(512 * 1024)
-# encrypt_buf(1024 * 1024)
-# encrypt_buf(2 * 1024 * 1024)
-# encrypt_buf(4 * 1024 * 1024)
-# encrypt_buf(8 * 1024 * 1024)
-# encrypt_buf(16 * 1024 * 1024)
-# encrypt_buf(32 * 1024 * 1024)
-# encrypt_buf(64 * 1024 * 1024)
-# encrypt_buf(128 * 1024 * 1024)
-# encrypt_buf(256 * 1024 * 1024)
-# encrypt_buf(512 * 1024 * 1024)
-# encrypt_buf(1024 * 1024 * 1024)
+# encrypt(32 * 1024)
+# encrypt(64 * 1024)
+# encrypt(128 * 1024)
+# encrypt(256 * 1024)
+# encrypt(512 * 1024)
+# encrypt(1024 * 1024)
+# encrypt(2 * 1024 * 1024)
+# encrypt(4 * 1024 * 1024)
+# encrypt(8 * 1024 * 1024)
+# encrypt(16 * 1024 * 1024)
+# encrypt(32 * 1024 * 1024)
+# encrypt(64 * 1024 * 1024)
+# encrypt(128 * 1024 * 1024)
+# encrypt(256 * 1024 * 1024)
+# encrypt(512 * 1024 * 1024)
+# encrypt(1024 * 1024 * 1024)
 
 # print("\n encrypt_into_buf")
 # print("| MB    | Seconds |")
@@ -361,54 +382,54 @@ def decrypt_file(plaintext_file, ciphertext_file):
 # encrypt_from(512 * 1024 * 1024)
 # encrypt_from(1024 * 1024 * 1024)
 
-tmp_dir = create_directory_in_home("rencrypt_tmp")
-sizes_mb = [
-    0.03125,
-    0.0625,
-    0.125,
-    0.25,
-    0.5,
-    1,
-    2,
-    4,
-    8,
-    16,
-    32,
-    64,
-    128,
-    256,
-    512,
-    1024,
-]
-print("\n encrypt_file")
-print("| MB | Seconds |")
-print("| -- | ------- |")
-for size in sizes_mb:
-    file_path = f"{tmp_dir}/test_{size}M.raw"
-    create_file_with_size(file_path, int(size * 1024 * 1024))
-    encrypt_file(file_path, file_path + ".enc")
-    delete_file(file_path)
-delete_dir(tmp_dir)
+# tmp_dir = create_directory_in_home("rencrypt_tmp")
+# sizes_mb = [
+#     0.03125,
+#     0.0625,
+#     0.125,
+#     0.25,
+#     0.5,
+#     1,
+#     2,
+#     4,
+#     8,
+#     16,
+#     32,
+#     64,
+#     128,
+#     256,
+#     512,
+#     1024,
+# ]
+# print("\n encrypt_file")
+# print("| MB | Seconds |")
+# print("| -- | ------- |")
+# for size in sizes_mb:
+#     file_path = f"{tmp_dir}/test_{size}M.raw"
+#     create_file_with_size(file_path, int(size * 1024 * 1024))
+#     encrypt_file(file_path, file_path + ".enc")
+#     delete_file(file_path)
+# delete_dir(tmp_dir)
 
-# print("\n decrypt_buf")
+# print("\n decrypt")
 # print("| MB    | Seconds |")
 # print("| ----- | ------- |")
-# decrypt_buf(32 * 1024)
-# decrypt_buf(64 * 1024)
-# decrypt_buf(128 * 1024)
-# decrypt_buf(256 * 1024)
-# decrypt_buf(512 * 1024)
-# decrypt_buf(1024 * 1024)
-# decrypt_buf(2 * 1024 * 1024)
-# decrypt_buf(4 * 1024 * 1024)
-# decrypt_buf(8 * 1024 * 1024)
-# decrypt_buf(16 * 1024 * 1024)
-# decrypt_buf(32 * 1024 * 1024)
-# decrypt_buf(64 * 1024 * 1024)
-# decrypt_buf(128 * 1024 * 1024)
-# decrypt_buf(256 * 1024 * 1024)
-# decrypt_buf(512 * 1024 * 1024)
-# decrypt_buf(1024 * 1024 * 1024)
+# decrypt(32 * 1024)
+# decrypt(64 * 1024)
+# decrypt(128 * 1024)
+# decrypt(256 * 1024)
+# decrypt(512 * 1024)
+# decrypt(1024 * 1024)
+# decrypt(2 * 1024 * 1024)
+# decrypt(4 * 1024 * 1024)
+# decrypt(8 * 1024 * 1024)
+# decrypt(16 * 1024 * 1024)
+# decrypt(32 * 1024 * 1024)
+# decrypt(64 * 1024 * 1024)
+# decrypt(128 * 1024 * 1024)
+# decrypt(256 * 1024 * 1024)
+# decrypt(512 * 1024 * 1024)
+# decrypt(1024 * 1024 * 1024)
 
 # print("\n decrypt_into_buf")
 # print("| MB    | Seconds |")
@@ -456,3 +477,22 @@ delete_dir(tmp_dir)
 # print("| Seconds |")
 # print("| -------- |")
 # decrypt_file(path_in, path_out)
+
+print("\n decrypt_from")
+print("| MB    | Seconds |")
+print("| ----- | ------- |")
+encrypt_speed_per_mb(64 * 1024)
+encrypt_speed_per_mb(128 * 1024)
+encrypt_speed_per_mb(256 * 1024)
+encrypt_speed_per_mb(512 * 1024)
+encrypt_speed_per_mb(1024 * 1024)
+encrypt_speed_per_mb(2 * 1024 * 1024)
+encrypt_speed_per_mb(4 * 1024 * 1024)
+encrypt_speed_per_mb(8 * 1024 * 1024)
+encrypt_speed_per_mb(16 * 1024 * 1024)
+# encrypt_speed_per_mb(32 * 1024 * 1024)
+# encrypt_speed_per_mb(64 * 1024 * 1024)
+# encrypt_speed_per_mb(128 * 1024 * 1024)
+# encrypt_speed_per_mb(256 * 1024 * 1024)
+# encrypt_speed_per_mb(512 * 1024 * 1024)
+# encrypt_speed_per_mb(1024 * 1024 * 1024)

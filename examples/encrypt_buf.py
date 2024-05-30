@@ -20,15 +20,15 @@ plaintext = os.urandom(plaintext_len)
 enc.copy_slice(plaintext, buf)
  # encrypt it, this will encrypt in-place the data in the buffer
 print("encryping...")
-ciphertext_len = enc.encrypt_buf(buf, plaintext_len, 42, aad)
+ciphertext_len = enc.encrypt(buf, plaintext_len, 42, aad)
 cipertext = buf[:ciphertext_len]
-# do something with the ciphertext
+# you can do something with the ciphertext
 
 # decrypt it
 # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
 # enc.copy_slice(ciphertext, buf[:len(ciphertext)])
 print("decryping...")
-plaintext_len = enc.decrypt_buf(buf, ciphertext_len, 42, aad)
+plaintext_len = enc.decrypt(buf, ciphertext_len, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
 print("bye!")

@@ -20,7 +20,6 @@ plaintext = bytes(os.urandom(plaintext_len))
 print("encryping...")
 ciphertext_len = enc.encrypt_into_buf(plaintext, buf, 42, aad)
 cipertext = bytes(buf[:ciphertext_len])
-# do something with the ciphertext
 
 # decrypt it
 print("decryping...")
