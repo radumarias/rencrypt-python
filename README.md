@@ -188,7 +188,7 @@ cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 
-# we get a buffer based in block len 4096 plaintext
+# we get a buffer based on block len 4096 plaintext
 # the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
 plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
 aad = b"AAD"
@@ -203,7 +203,7 @@ ciphertext_len = enc.encrypt_buf(buf, plaintext_len, 42, aad)
 cipertext = buf[:ciphertext_len]
 # do something with the ciphertext
 
-#decrypt it
+# decrypt it
 # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
 # enc.copy_slice(ciphertext, buf[:len(ciphertext)])
 plaintext_len = enc.decrypt_buf(buf, ciphertext_len, 42, aad)
@@ -264,7 +264,7 @@ cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 
-# we get a buffer based in block len 4096 plaintext
+# we get a buffer based on block len 4096 plaintext
 # the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
 plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
 aad = b"AAD"
@@ -276,7 +276,7 @@ ciphertext_len = enc.encrypt_to_buf(plaintext, buf, 42, aad)
 cipertext = bytes(buf[:ciphertext_len])
 # do something with the ciphertext
 
-#decrypt it
+# decrypt it
 plaintext_len = enc.decrypt_to_buf(cipertext, buf, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
@@ -302,7 +302,7 @@ plaintext = os.urandom(4096)
  # encrypt it, this will return the ciphertext
 ciphertext = enc.encrypt_from(plaintext, 42, aad)
 
-#decrypt it
+# decrypt it
 plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
 assert plaintext == plaintext2
 ```

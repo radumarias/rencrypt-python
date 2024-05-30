@@ -15,6 +15,6 @@ plaintext = os.urandom(4096)
  # encrypt it, this will return the ciphertext
 ciphertext = enc.encrypt_from(plaintext, 42, aad)
 
-#decrypt it
+# decrypt it
 plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
 assert plaintext == plaintext2

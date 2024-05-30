@@ -8,7 +8,7 @@ cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
 
-# we get a buffer based in block len 4096 plaintext
+# we get a buffer based on block len 4096 plaintext
 # the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
 plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
 aad = b"AAD"
@@ -23,7 +23,7 @@ ciphertext_len = enc.encrypt_buf(buf, plaintext_len, 42, aad)
 cipertext = buf[:ciphertext_len]
 # do something with the ciphertext
 
-#decrypt it
+# decrypt it
 # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
 # enc.copy_slice(ciphertext, buf[:len(ciphertext)])
 plaintext_len = enc.decrypt_buf(buf, ciphertext_len, 42, aad)
