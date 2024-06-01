@@ -326,7 +326,9 @@ There are three ways in which you can use the lib, the main difference is the sp
 
 You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks. Here are few simple examples:
 
-## Encrypt and decrypt with a buffer in memory `encrypt()`/`decrypt()`
+## Encrypt and decrypt with a buffer in memory
+
+`encrypt()`/`decrypt()`
 
 This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
@@ -484,7 +486,9 @@ delete_dir(tmp_dir)
 print("bye!")
 ```
 
-## Encrypt and decrypt from some bytes to the buffer `encrypt_into()`/`decrypt_into()` or `encrypt_into1()`/`decrypt_into1()`
+## Encrypt and decrypt from some bytes to the buffer
+
+`encrypt_into()`/`decrypt_into()` or `encrypt_into1()`/`decrypt_into1()`
 
 This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some `bytes` from somewhere else.
 
@@ -523,7 +527,9 @@ print("bye!")
 For `encrypt_into1()`/`decrypt_into1()` the only difference is that the input is `bytearray`.
 
 
-## Encrypt and decrypt from some bytes to another new bytes, without using the buffer  `encrypt_from()`/`decrypt_from()` or `encrypt_from1()`/`decrypt_from1()`
+## Encrypt and decrypt from some bytes to another new bytes, without using the buffer
+
+`encrypt_from()`/`decrypt_from()` or `encrypt_from1()`/`decrypt_from1()`
 
 This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
 
