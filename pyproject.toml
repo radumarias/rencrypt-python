@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
-    "License :: Apache-2.0 license",
+    "License :: OSI Approved :: Apache Software License",
 ]
 dynamic = ["version"]
 [tool.maturin]

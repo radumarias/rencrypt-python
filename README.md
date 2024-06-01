@@ -7,30 +7,30 @@ So if you want to achieve the highest possible encryption speed, consider giving
 
 # Benchmark
 
-Some benchmarks comparing to [PyFLocker](https://github.com/arunanshub/pyflocker), which, from other implementations, I found to be the fastest. After this there is also comparison with other implementations.
+Some benchmarks comparing to [PyFLocker](https://github.com/arunanshub/pyflocker), which, from other implementations, I found to be the fastest.
 
 ## Buffer in memory
 
 This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
 `REncrypt` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
 
-| Encrypt seconds | Decrypt seconds |
-| --------------- | --------------- |
-| ![Encrypt buffer](resources/charts/encrypt.png) | ![Decrypt buffer](resources/charts/decrypt.png) |
+**Encrypt seconds**  
+![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt.png?raw=true)
 
+**Decrypt seconds**  
+![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt.png?raw=true)
+
+
+**Block size and duration in seconds**
 
 <table>
     <thead>
         <tr>
-            <th rowspan=2>MB</th>
-            <th colspan=2>Encrypt seconds</th>
-            <th colspan=2>Decrypt seconds</th>
-        </tr>
-        <tr>
-            <th>REncrypt</th>
-            <th>PyFLocker</th>
-            <th>REncrypt</th>
-            <th>PyFLocker</th>
+            <th>MB</th>
+            <th>REncrypt<br>encrypt</th>
+            <th>PyFLocker<br>encrypt</th>
+            <th>REncrypt<br>decrypt</th>
+            <th>PyFLocker<br>decrypt</th>
         </tr>
     </thead>
     <tbody>
@@ -151,22 +151,21 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 ## File
 
-| Encrypt seconds | Decrypt seconds |
-| --------------- | --------------- |
-| ![Encrypt file](resources/charts/encrypt-file.png) | ![Decrypt buffer](resources/charts/decrypt-file.png) |
+**Encrypt seconds**  
+![Encrypt file](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-file.png?raw=true)
+
+ **Decrypt seconds**  
+![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-file.png?raw=true)
 
 <table>
     <thead>
         <tr>
-            <th rowspan=2>MB</th>
-            <th colspan=2>Encrypt seconds</th>
-            <th colspan=2>Decrypt seconds</th>
+            <th>MB</th>
+            <th>REncrypt<br>encrypt</th>
+            <th>PyFLocker<br>encrypt</th>
+            <th>REncrypt<br>decrypt</th>
+            <th>PyFLocker<br>decrypt</th>
         </tr>
-        <tr>
-            <th>REncrypt</th>
-            <th>PyFLocker</th>
-            <th>REncrypt</th>
-            <th>PyFLocker</th>
         </tr>
     </thead>
     <tbody>
@@ -561,7 +560,7 @@ For `encrypt_from1()`/`decrypt_from1()` the only difference is that the input is
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/radumarias/rencrypt-python)
 
-[![Open Rustlings On Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/?repo=radumarias%2Frencrypt-python&ref=main)
+[![Open in Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/?repo=radumarias%2Frencrypt-python&ref=main)
 
 ## Geting sources from GitHub
 
@@ -592,29 +591,26 @@ python bench.py
 
 ## Different ways to use the lib
 
-| Encrypt | Decrypt |
-| ------- | ------- |
-| ![Encrypt buffer](resources/charts/encrypt-all.png) | ![Decrypt buffer](resources/charts/decrypt-all.png) |
+**Encrypt**  
+![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-all.png?raw=true)
 
+**Decrypt**  
+ ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-all.png?raw=true)
 
 <table>
     <thead>
         <tr>
-            <th rowspan=2>MB</th>
-            <th colspan=5>Encrypt seconds</th>
-            <th colspan=5>Decrypt seconds</th>
-        </tr>
-        <tr>
+            <th>MB</th>
             <th>REncrypt<br>encrypt</th>
-            <th>PyFLocker<br>update_into</th>
+            <th>PyFLocker<br>encrypt update_into</th>
             <th>REncrypt<br>encrypt_into</th>
             <th>REncrypt<br>encrypt_from</th>
-            <th>PyFLocker<br>update</th>
+            <th>PyFLocker<br>encrypt update</th>
             <th>REncrypt<br>decrypt</th>
-            <th>PyFLocker<br>update_into</th>
+            <th>PyFLocker<br>decrypt update_into</th>
             <th>REncrypt<br>decrypt_into</th>
             <th>REncrypt<br>decrypt_from</th>
-            <th>PyFLocker<br>update</th>
+            <th>PyFLocker<br>decrypt update</th>
         </tr>
     </thead>
     <tbody>
@@ -834,7 +830,7 @@ python bench.py
 `256KB` seems to be the sweet spot for buffer size that offers the max `MB/s` speed for encryption, on benchmarks that seem to be the case.
 We performed `10.000` encryption operations for each size varying from `1KB` to `16MB`.
 
-![Speed throughput](resources/charts/speed-throughput.png)
+![Speed throughput](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/speed-throughput.png?raw=true)
 
 | MB    | MB/s |
 | ----- | ------- |
