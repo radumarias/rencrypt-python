@@ -1,5 +1,7 @@
 # REncrypt
 
+[![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
+
 A Python encryption library implemented in Rust. It supports `AEAD` with `AES-GCM` and `ChaCha20Poly1305`. It uses [ring](https://crates.io/crates/ring) to handle encryption.  
 If offers slightly higher speed compared to other Python libs, especially for small chunks of data. The API also tries to be easy to use but it's more optimized for speed than usability.
 
@@ -22,7 +24,6 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 
 **Block size and duration in seconds**
-
 <table>
     <thead>
         <tr>
@@ -157,6 +158,7 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
  **Decrypt seconds**  
 ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-file.png?raw=true)
 
+**File size and duration in seconds**
 <table>
     <thead>
         <tr>
@@ -597,6 +599,7 @@ python bench.py
 **Decrypt**  
  ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-all.png?raw=true)
 
+**Block size and duration in seconds**
 <table>
     <thead>
         <tr>
