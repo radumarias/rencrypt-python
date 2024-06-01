@@ -448,8 +448,6 @@ create_file_with_size(fin, 42 * 1024 * 1024)
 
 chunk_len = 256 * 1024
 
-key = os.urandom(32)
-
 cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
