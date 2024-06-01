@@ -319,7 +319,7 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 There are three ways in which you can use the lib, the main difference is the speed, some offers an easier way to use it sacrificing performance.
 
 1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory. If you can directly collect the data to that buffer, like `buffered_reader.read_into()`, **this is the preffered way to go**.
-2. **From some bytes to the buffer**: using `encrypt_into()`/`decrypt_into()`, when you have some arbitrary `bytes` that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in buffer. This is a bit slower, especially for large data, because it needs to copy the bytes to the buffer.
+2. **From some bytes into the buffer**: using `encrypt_into()`/`decrypt_into()`, when you have some arbitrary `bytes` that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in buffer. This is a bit slower, especially for large data, because it needs to copy the bytes to the buffer.
 3. **From some bytes to another new bytes**: using `encrypt_from()`/`decrypt_from()`, it doesn't use the buffer at all, you just got some bytes you want to work with and you receive back another new bytes. This is the slowest one because it needs to first allocate a buffer, copy the data to the buffer, perform the operation then return that buffer as bytes. It's the easiest to use but is not so performant.
 
 # Examples
@@ -486,7 +486,7 @@ delete_dir(tmp_dir)
 print("bye!")
 ```
 
-## Encrypt and decrypt from some bytes to the buffer
+## Encrypt and decrypt from some bytes into the buffer
 
 `encrypt_into()`/`decrypt_into()` or `encrypt_into1()`/`decrypt_into1()`
 
