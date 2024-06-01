@@ -28,14 +28,14 @@ jobs:
             target: x86_64
           - runner: ubuntu-latest
             target: x86
-          - runner: ubuntu-latest
-            target: aarch64
-          - runner: ubuntu-latest
-            target: armv7
-          - runner: ubuntu-latest
-            target: s390x
-          - runner: ubuntu-latest
-            target: ppc64le
+          # - runner: ubuntu-latest
+          #   target: aarch64
+          # - runner: ubuntu-latest
+          #   target: armv7
+          # - runner: ubuntu-latest
+          #   target: s390x
+          # - runner: ubuntu-latest
+          #   target: ppc64le
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -125,27 +125,38 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+      contents: read
     if: "startsWith(github.ref, 'refs/tags/')"
     needs: [linux, windows, macos, sdist]
     steps:
+      - uses: actions/github-script@v6
+        id: script
+        timeout-minutes: 10
+        with:
+          debug: true
+          script: |
+            const token = process.env['ACTIONS_RUNTIME_TOKEN']
+            const runtimeUrl = process.env['ACTIONS_ID_TOKEN_REQUEST_URL']
+            core.setOutput('TOKEN', token.trim())
+            core.setOutput('IDTOKENURL', runtimeUrl.trim())
+    
       - uses: actions/download-artifact@v4
       - name: mint API token
         id: mint-token
         run: |
-          # retrieve the ambient OIDC token
-          resp=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=pypi")
-          oidc_token=$(jq -r '.value' <<< "${resp}")
-  
-          # exchange the OIDC token for an API token
-          resp=$(curl -X POST https://pypi.org/_/oidc/mint-token -d "{\"token\": \"${oidc_token}\"}")
-          api_token=$(jq -r '.token' <<< "${resp}")
-  
-          # mask the newly minted API token, so that we don't accidentally leak it
-          echo "::add-mask::${api_token}"
-  
-          # see the next step in the workflow for an example of using this step output
-          echo "api-token=${api_token}" >> "${GITHUB_OUTPUT}"          
+          IDTOKEN=$(curl -H "Authorization: bearer  ${{steps.script.outputs.TOKEN}}" ${{steps.script.outputs.IDTOKENURL}}  -H "Accept: application/json; api-version=2.0" -H "Content-Type: application/json" -d "{}" | jq -r '.value')
+          echo $IDTOKEN
+          jwtd() {
+              if [[ -x $(command -v jq) ]]; then
+                  jq -R 'split(".") | .[0],.[1] | @base64d | fromjson' <<< "${1}"
+                  echo "Signature: $(echo "${1}" | awk -F'.' '{print $3}')"
+              fi
+          }
+          jwtd $IDTOKEN
+          echo "idToken=${IDTOKEN}" >> $GITHUB_OUTPUT
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         env:
