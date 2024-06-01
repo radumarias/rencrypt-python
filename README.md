@@ -1,7 +1,7 @@
 # REncrypt
 
 A Python encryption library implemented in Rust. It supports `AEAD` with `AES-GCM` and `ChaCha20Poly1305`. It uses [ring](https://crates.io/crates/ring) to handle encryption.  
-If offers slightly higher speed compared to other Python libs. The API tries to be easy to use but it's more optimized for speed.
+If offers slightly higher speed compared to other Python libs, especially for smaller chunks of data. The API also tries to be easy to use but it's more optimized for speed than usability.
 
 So if you want to achieve the highest possible encryption speed, consider giving it a try.
 
@@ -11,12 +11,12 @@ Some benchmarks comparing to [PyFLocker](https://github.com/arunanshub/pyflocker
 
 ## Buffer in memory
 
-This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it doesn't allocate new memory.  
+This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
 `REncrypt` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
 
-| Encrypt | Decrypt |
-| ------- | ------- |
-| ![Encrypt buffer](resources/encrypt-chart.png) | ![Decrypt buffer](resources/decrypt-chart.png) |
+| Encrypt seconds | Decrypt seconds |
+| --------------- | --------------- |
+| ![Encrypt buffer](resources/charts/encrypt.png) | ![Decrypt buffer](resources/charts/decrypt.png) |
 
 
 <table>
@@ -149,15 +149,18 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
     </tbody>
 </table>
 
-
 ## File
+
+| Encrypt seconds | Decrypt seconds |
+| --------------- | --------------- |
+| ![Encrypt file](resources/charts/encrypt-file.png) | ![Decrypt buffer](resources/charts/decrypt-file.png) |
 
 <table>
     <thead>
         <tr>
             <th rowspan=2>MB</th>
-            <th colspan=2>Encrypt<br>sec</th>
-            <th colspan=2>Decrypt<br>sec</th>
+            <th colspan=2>Encrypt seconds</th>
+            <th colspan=2>Decrypt seconds</th>
         </tr>
         <tr>
             <th>REncrypt</th>
@@ -168,11 +171,144 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
     </thead>
     <tbody>
         <tr>
-            <td>938.2</td>
-            <td>0.69383</td>
-            <td>0.76638</td>
-            <td>0.67983</td>
-            <td>0.93099</td>
+            <td>0.031251</td>
+            <td>0.00010</td>
+            <td>0.00280</td>
+            <td>0.00004</td>
+            <td>0.00479</td>
+        </tr>
+        <tr>
+            <td>0.062501</td>
+            <td>0.00009</td>
+            <td>0.00218</td>
+            <td>0.00005</td>
+            <td>0.00143</td>
+        </tr>
+        <tr>
+            <td>0.125</td>
+            <td>0.00020</td>
+            <td>0.00212</td>
+            <td>0.00014</td>
+            <td>0.00129</td>
+        </tr>
+        <tr>
+            <td>0.25</td>
+            <td>0.00034</td>
+            <td>0.00232</td>
+            <td>0.00020</td>
+            <td>0.00165</td>
+        </tr>
+        <tr>
+            <td>0.5</td>
+            <td>0.00050</td>
+            <td>0.00232</td>
+            <td>0.00035</td>
+            <td>0.00181</td>
+        </tr>
+        <tr>
+            <td>1</td>
+            <td>0.00087</td>
+            <td>0.00356</td>
+            <td>0.00065</td>
+            <td>0.00248</td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>0.00215</td>
+            <td>0.00484</td>
+            <td>0.00154</td>
+            <td>0.00363</td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td>0.00361</td>
+            <td>0.00765</td>
+            <td>0.00301</td>
+            <td>0.00736</td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>0.00688</td>
+            <td>0.01190</td>
+            <td>0.00621</td>
+            <td>0.00876</td>
+        </tr>
+        <tr>
+            <td>16</td>
+            <td>0.01503</td>
+            <td>0.02097</td>
+            <td>0.01202</td>
+            <td>0.01583</td>
+        </tr>
+        <tr>
+            <td>32</td>
+            <td>0.02924</td>
+            <td>0.03642</td>
+            <td>0.02563</td>
+            <td>0.02959</td>
+        </tr>
+        <tr>
+            <td>64</td>
+            <td>0.05737</td>
+            <td>0.06473</td>
+            <td>0.04431</td>
+            <td>0.05287</td>
+        </tr>
+        <tr>
+            <td>128</td>
+            <td>0.11098</td>
+            <td>0.12646</td>
+            <td>0.08944</td>
+            <td>0.09926</td>
+        </tr>
+        <tr>
+            <td>256</td>
+            <td>0.22964</td>
+            <td>0.24716</td>
+            <td>0.17402</td>
+            <td>0.19420</td>
+        </tr>
+        <tr>
+            <td>512</td>
+            <td>0.43506</td>
+            <td>0.46444</td>
+            <td>0.38143</td>
+            <td>0.38242</td>
+        </tr>
+        <tr>
+            <td>1024</td>
+            <td>0.97147</td>
+            <td>0.95803</td>
+            <td>0.78137</td>
+            <td>0.87363</td>
+        </tr>
+        <tr>
+            <td>2048</td>
+            <td>2.07143</td>
+            <td>2.10766</td>
+            <td>1.69471</td>
+            <td>2.99210</td>
+        </tr>
+        <tr>
+            <td>4096</td>
+            <td>4.85395</td>
+            <td>4.69722</td>
+            <td>5.40580</td>
+            <td>8.73779</td>
+        </tr>
+        <tr>
+            <td>8192</td>
+            <td>10.76984</td>
+            <td>11.76741</td>
+            <td>10.29253</td>
+            <td>21.00636</td>
+        </tr>
+        <tr>
+            <td>16384</td>
+            <td>21.84490</td>
+            <td>26.27385</td>
+            <td>39.56230</td>
+            <td>43.55530</td>
         </tr>
     </tbody>
 </table>
@@ -181,15 +317,15 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 There are three ways in which you can use the lib, the main difference is the speed, some offers an easier way to use it sacrificing performance.
 
-1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it doesn't copy the data nor it allocates new memory. If you can somehow directly collect the data to that buffer, like `file.read_into()`, **this is the preffered way to go**.
-2. **From some bytes to the buffer**: using `encrypt_into_buf()`/`decrypt_to_buf()`, when you have some arbitrary bytes that you want to work with. You will first copy those bytes to the buffer then do the operation in-place in buffer. This is a bit slower, especially for large bytes, because it needs to copy the bytes to the buffer.
-3. **From some bytes to another new bytes**: using `encrypt_from()`/`decrypt_from()`, tit doesn't use the buffer at all, you just got some bytes you want to work with and you receive back another new bytes. This is the slowest one because it needs to first allocate a buffer, copy the bytes to a buffer, perform the operation then return that buffer as bytes. It's the easiest to use but is not so performant.
+1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory. If you can directly collect the data to that buffer, like `buffered_reader.read_into()`, **this is the preffered way to go**.
+2. **From some bytes to the buffer**: using `encrypt_into()`/`decrypt_to_buf()`, when you have some arbitrary `bytes` that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in buffer. This is a bit slower, especially for large data, because it needs to copy the bytes to the buffer.
+3. **From some bytes to another new bytes**: using `encrypt_from()`/`decrypt_from()`, it doesn't use the buffer at all, you just got some bytes you want to work with and you receive back another new bytes. This is the slowest one because it needs to first allocate a buffer, copy the data to the buffer, perform the operation then return that buffer as bytes. It's the easiest to use but is not so performant.
 
 # Examples
 
 You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks. Here are few simple examples:
 
-## Encrypt and decrypt with a buffer in memory
+## Encrypt and decrypt with a buffer in memory `encrypt`/`decrypt`
 
 This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
@@ -232,11 +368,23 @@ You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 
 ## Encrypt and decrypt a file
 
-It encrypts and decrypts the file in parallel.
-
 ```python
+import errno
+import io
+import os
 from rencrypt import REncrypt, Cipher
 import hashlib
+
+
+def read_file_in_chunks(file_path, buf):
+    with open(file_path, "rb") as file:
+        buffered_reader = io.BufferedReader(file, buffer_size=len(buf))
+        while True:
+            read = buffered_reader.readinto(buf)
+            if read == 0:
+                break
+            yield read
+
 
 def calculate_file_hash(file_path):
     hash_algo = hashlib.sha256()
@@ -249,33 +397,64 @@ def calculate_file_hash(file_path):
 def compare_files_by_hash(file1, file2):
     return calculate_file_hash(file1) == calculate_file_hash(file2)
 
-file_in = "/tmp/fin"
-file_out = "/tmp/fout.enc"
 
-# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
+def silentremove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:  # this would be "except OSError, e:" before Python 2.6
+        if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
+            raise  # re-raise exception if a different error occurred
+
+
+path_in = "/tmp/fin"
+path_out = "/tmp/fout.enc"
+
+chunk_len = 128 * 1024
+
+key = os.urandom(32)
+
 cipher = Cipher.AES256GCM
 key = cipher.generate_key()
 enc = REncrypt(cipher, key)
+plaintext_len, _, buf = enc.create_buf(chunk_len)
 
 aad = b"AAD"
 
-# encrypt it
+# encrypt
 print("encryping...")
-enc.encrypt_file(file_in, file_out, aad)
+silentremove(path_out)
+with open(path_out, "wb", buffering=plaintext_len) as file_out:
+    i = 0
+    for read in read_file_in_chunks(path_in, buf[:plaintext_len]):
+        ciphertext_len = enc.encrypt(buf, read, i, aad)
+        file_out.write(buf[:ciphertext_len])
+        i += 1
+    file_out.flush()
 
-# decrypt it
+# decrypt
 print("decryping...")
-enc.decrypt_file(file_out, file_in, aad)
+tmp_path = "/tmp/fout.dec"
+with open(tmp_path, "wb", buffering=plaintext_len) as file_out:
+    i = 0
+    for read in read_file_in_chunks(path_out, buf):
+        plaintext_len2 = enc.decrypt(buf, read, i, aad)
+        file_out.write(buf[:plaintext_len2])
+        i += 1
+    file_out.flush()
 
-compare_files_by_hash(file_in, file_out)
+compare_files_by_hash(path_in, tmp_path)
+
+silentremove(tmp_path)
+silentremove(path_out)
+
 print("bye!")
 ```
 
-Currently it's not possible to encrypt/decrypt to the same file. **DON'T DO IT, IT WILL COMPROMISE THE FILE**.
+## Encrypt and decrypt from some bytes to the buffer `encrypt_into`/`decrypt_into` or `encrypt_into1`/`decrypt_into1`
 
-## Encrypt and decrypt from some bytes to the buffer
+This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some `bytes` from somewhere else.
 
-This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some bytes from somewhere else.
+For `encrypt_into`/`encrypt_into` the plaintext is `bytes`.
 
 ```python
 from rencrypt import REncrypt, Cipher
@@ -295,20 +474,25 @@ plaintext = bytes(os.urandom(plaintext_len))
 
  # encrypt it, after this will have the ciphertext in the buffer
  print("encryping...")
-ciphertext_len = enc.encrypt_into_buf(plaintext, buf, 42, aad)
+ciphertext_len = enc.encrypt_into(plaintext, buf, 42, aad)
 cipertext = bytes(buf[:ciphertext_len])
 
 # decrypt it
 print("decryping...")
-plaintext_len = enc.decrypt_into_buf(cipertext, buf, 42, aad)
+plaintext_len = enc.decrypt_into(cipertext, buf, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
 print("bye!")
 ```
 
-## Encrypt and decrypt from some bytes to another new bytes, without using the buffer
+For `encrypt_into1`/`encrypt_into1` the only difference is that the plaintext is `bytearray`.
+
+
+## Encrypt and decrypt from some bytes to another new bytes, without using the buffer  `encrypt_from`/`decrypt_from` or `encrypt_from2`/`decrypt_from2`
 
 This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
+
+For `encrypt_from`/`decrypt_from` the plaintext is `bytes`.
 
 ```python
 from rencrypt import REncrypt, Cipher
@@ -333,6 +517,9 @@ plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
 assert plaintext == plaintext2
 print("bye!")
 ```
+
+For `encrypt_from2`/`decrypt_from2` the only difference is that the plaintext is `bytearray`.
+
 # Building from source
 
 ## Browser
@@ -372,7 +559,7 @@ python python bench.py
 
 | Encrypt | Decrypt |
 | ------- | ------- |
-| ![Encrypt buffer](resources/encrypt-all-chart.png) | ![Decrypt buffer](resources/decrypt-all-chart.png) |
+| ![Encrypt buffer](resources/charts/encrypt-all.png) | ![Decrypt buffer](resources/charts/decrypt-all.png) |
 
 
 <table>
@@ -385,12 +572,12 @@ python python bench.py
         <tr>
             <th>REncrypt<br>encrypt</th>
             <th>PyFLocker<br>update_into</th>
-            <th>REncrypt<br>encrypt_into_buf</th>
+            <th>REncrypt<br>encrypt_into</th>
             <th>REncrypt<br>encrypt_from</th>
             <th>PyFLocker<br>update</th>
             <th>REncrypt<br>decrypt</th>
             <th>PyFLocker<br>update_into</th>
-            <th>REncrypt<br>decrypt_into_buf</th>
+            <th>REncrypt<br>decrypt_into</th>
             <th>REncrypt<br>decrypt_from</th>
             <th>PyFLocker<br>update</th>
         </tr>
@@ -609,26 +796,33 @@ python python bench.py
 
 ## Speed throughput
 
-`128KB` seems to be the optimal byffer size that offers the max `MB/s` speed for encryption, on benchmarks that seem to be the case.
-We performed `10.000` encryption operations for each size varying from `64KB` to `1GB`, after `8MB` it tops up to similar values.
+`256KB` seems to be the sweet spot for buffer size that offers the max `MB/s` speed for encryption, on benchmarks that seem to be the case.
+We performed `10.000` encryption operations for each size varying from `1KB` to `16MB`.
 
-![Speed throughput](resources/througput-chart.png)
+![Speed throughput](resources/charts/speed-throughput.png)
 
-| MB    | Speed MB/s |
+| MB    | MB/s |
 | ----- | ------- |
-| 0.0625 | 4208 |
-| <span style="color: red; font-weight: bold;">0.125</span> | <span style="color: red; font-weight: bold;">4479</span> |
-| 0.25 | 4223 |
-| 0.5 | 4331 |
-| 1.0 | 3579 |
-| 2.0 | 3664 |
-| 4.0 | 3446 |
-| 8.0 | 3880 |
+| 0.0009765625 | 1083 |
+| 0.001953125 | 1580 |
+| 0.00390625 | 2158 |
+| 0.0078125 | 2873 |
+| 0.015625 | 3348 |
+| 0.03125 | 3731 |
+| 0.0625 | 4053 |
+| 0.125 | 4156 |
+| <span style="color: red; font-weight: bold;">0.25</span> | <span style="color: red; font-weight: bold;">4247</span> |
+| 0.5 | 4182 |
+| 1.0 | 3490 |
+| 2.0 | 3539 |
+| 4.0 | 3684 |
+| 8.0 | 3787 |
+| 16.0 | 3924 |
 
 # For the future
 
 - Add more `AES` ciphers like `AES128-GCM` and `AES-GCM-SIV`
-- Ability to use other crates to handle encryption like [RustCrypto](https://github.com/RustCrypto/traits)
+- Add other encryption providers like [RustCrypto](https://github.com/RustCrypto/traits) and [libsodium](https://crates.io/crates/sodiumoxide)
 - Maybe add support for `RSA` and `Elliptic-curve cryptography`
 - Saving and loading keys from file
 

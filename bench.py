@@ -4,6 +4,18 @@ import os
 from rencrypt import REncrypt, Cipher
 import hashlib
 from pathlib import Path
+import shutil
+import io
+
+
+def read_file_in_chunks(file_path, buf):
+    with open(file_path, "rb") as file:
+        buffered_reader = io.BufferedReader(file, buffer_size=len(buf))
+        while True:
+            read = buffered_reader.readinto(buf)
+            if read == 0:
+                break
+            yield read
 
 
 def get_file_size(file_path):
@@ -29,14 +41,10 @@ def delete_file(path):
 
 
 def delete_dir(path):
-    try:
-        os.removedirs(path)
-    except FileNotFoundError:
-        print(f"File {path} not found.")
-    except PermissionError:
-        print(f"Permission denied to delete {path}.")
-    except Exception as e:
-        print(f"Error deleting dir {path}: {e}")
+    if os.path.exists(path):
+        shutil.rmtree(path)
+    else:
+        print(f"Directory {path} does not exist.")
 
 
 def create_directory_in_home(dir_name):
@@ -49,7 +57,6 @@ def create_directory_in_home(dir_name):
     # Create the directory
     try:
         new_dir_path.mkdir(parents=True, exist_ok=True)
-        print(f"Directory {new_dir_path} created successfully.")
     except Exception as e:
         print(f"Error creating directory: {e}")
 
@@ -58,8 +65,8 @@ def create_directory_in_home(dir_name):
 
 def create_file_with_size(file_path_str, size_in_bytes):
     with open(file_path_str, "wb") as f:
-        f.seek(size_in_bytes)
-        f.write(b"\0")
+        for _ in range(size_in_bytes // 4096):
+            f.write(os.urandom(4096))
 
 
 def calculate_file_hash(file_path):
@@ -106,6 +113,7 @@ def encrypt(block_len):
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
+
 def encrypt_speed_per_mb(block_len):
     cipher = Cipher.AES256GCM
     key = cipher.generate_key()
@@ -115,7 +123,7 @@ def encrypt_speed_per_mb(block_len):
     aad = b"AAD"
 
     deltas = []
-    for i in range(42):
+    for i in range(1000):
         plaintext = os.urandom(block_len)
         enc.copy_slice(plaintext, buf[: len(plaintext)])
 
@@ -131,7 +139,7 @@ def encrypt_speed_per_mb(block_len):
     print(f"| {block_len/1024/1024} | {block_len/1024/1024/average} |")
 
 
-def encrypt_into_buf(block_len):
+def encrypt_into(block_len):
     cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
@@ -145,7 +153,7 @@ def encrypt_into_buf(block_len):
 
         a = datetime.datetime.now()
 
-        enc.encrypt_into_buf(plaintext, buf, i, aad)
+        enc.encrypt_into(plaintext, buf, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -178,7 +186,7 @@ def encrypt_from(block_len):
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
 
-def encrypt_file(path_in, path_out):
+def encrypt_file2(path_in, path_out):
     cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
@@ -192,6 +200,43 @@ def encrypt_file(path_in, path_out):
         a = datetime.datetime.now()
 
         enc.encrypt_file(path_in, path_out, aad)
+
+        b = datetime.datetime.now()
+        delta = b - a
+        deltas.append(delta.total_seconds())
+
+    silentremove(path_out)
+
+    average = sum(deltas, 0) / len(deltas)
+    filesize = get_file_size(path_in)
+    print(f"| {(filesize / 1024 / 1024):.5g} | {average:.5f} |")
+
+
+def encrypt_file(path_in, path_out):
+    chunk_len = 256 * 1024
+
+    key = os.urandom(32)
+
+    cipher = Cipher.AES256GCM
+    key = cipher.generate_key()
+    enc = REncrypt(cipher, key)
+    plaintext_len, _, buf = enc.create_buf(chunk_len)
+
+    aad = b"AAD"
+
+    deltas = []
+    for _ in range(3):
+        silentremove(path_out)
+
+        a = datetime.datetime.now()
+
+        with open(path_out, "wb", buffering=chunk_len + 28) as file_out:
+            i = 0
+            for read in read_file_in_chunks(path_in, buf[:plaintext_len]):
+                ciphertext_len = enc.encrypt(buf, read, i, aad)
+                file_out.write(buf[:ciphertext_len])
+                i += 1
+            file_out.flush()
 
         b = datetime.datetime.now()
         delta = b - a
@@ -232,7 +277,7 @@ def decrypt(block_len):
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
 
-def decrypt_into_buf(block_len):
+def decrypt_into(block_len):
     cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
@@ -249,7 +294,7 @@ def decrypt_into_buf(block_len):
 
         a = datetime.datetime.now()
 
-        plaintext_len = enc.decrypt_into_buf(ciphertext, buf, i, aad)
+        plaintext_len = enc.decrypt_into(ciphertext, buf, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -291,16 +336,27 @@ def decrypt_from(block_len):
 
 
 def decrypt_file(plaintext_file, ciphertext_file):
+    key = os.urandom(32)
+
     cipher = Cipher.AES256GCM
     key = cipher.generate_key()
     enc = REncrypt(cipher, key)
+    chunk_len = 256 * 1024
+    plaintext_len, _, buf = enc.create_buf(chunk_len)
 
     aad = b"AAD"
 
-    tmp = "/home/gnome/tmp/test.dec"
+    tmp = ciphertext_file + ".dec"
 
     silentremove(ciphertext_file)
-    enc.encrypt_file(plaintext_file, ciphertext_file, aad)
+
+    with open(ciphertext_file, "wb", buffering=plaintext_len) as file_out:
+        i = 0
+        for read in read_file_in_chunks(plaintext_file, buf[:plaintext_len]):
+            ciphertext_len = enc.encrypt(buf, read, i, aad)
+            file_out.write(buf[:ciphertext_len])
+            i += 1
+        file_out.flush()
 
     deltas = []
     for _ in range(3):
@@ -308,7 +364,13 @@ def decrypt_file(plaintext_file, ciphertext_file):
 
         a = datetime.datetime.now()
 
-        enc.decrypt_file(ciphertext_file, tmp, aad)
+        with open(tmp, "wb", buffering=plaintext_len) as file_out:
+            i = 0
+            for read in read_file_in_chunks(ciphertext_file, buf):
+                plaintext_len2 = enc.decrypt(buf, read, i, aad)
+                file_out.write(buf[:plaintext_len2])
+                i += 1
+            file_out.flush()
 
         b = datetime.datetime.now()
         delta = b - a
@@ -319,168 +381,200 @@ def decrypt_file(plaintext_file, ciphertext_file):
     silentremove(tmp)
 
     average = sum(deltas, 0) / len(deltas)
-    print(f"| {average:.5f} |")
+    filesize = get_file_size(plaintext_file)
+    print(f"| {(filesize / 1024 / 1024):.5g} | {average:.5f} |")
 
 
-# print("encrypt")
-# print("| MB    | Seconds |")
-# print("| ----- | ------- |")
-# encrypt(32 * 1024)
-# encrypt(64 * 1024)
-# encrypt(128 * 1024)
-# encrypt(256 * 1024)
-# encrypt(512 * 1024)
-# encrypt(1024 * 1024)
-# encrypt(2 * 1024 * 1024)
-# encrypt(4 * 1024 * 1024)
-# encrypt(8 * 1024 * 1024)
-# encrypt(16 * 1024 * 1024)
-# encrypt(32 * 1024 * 1024)
-# encrypt(64 * 1024 * 1024)
-# encrypt(128 * 1024 * 1024)
-# encrypt(256 * 1024 * 1024)
-# encrypt(512 * 1024 * 1024)
-# encrypt(1024 * 1024 * 1024)
+def copy_file(fin, fout):
+    chunk_len = 256 * 1024
+    buf = bytearray(chunk_len)
 
-# print("\n encrypt_into_buf")
-# print("| MB    | Seconds |")
-# print("| ----- | ------- |")
-# encrypt_into_buf(32 * 1024)
-# encrypt_into_buf(64 * 1024)
-# encrypt_into_buf(128 * 1024)
-# encrypt_into_buf(256 * 1024)
-# encrypt_into_buf(512 * 1024)
-# encrypt_into_buf(1024 * 1024)
-# encrypt_into_buf(2 * 1024 * 1024)
-# encrypt_into_buf(4 * 1024 * 1024)
-# encrypt_into_buf(8 * 1024 * 1024)
-# encrypt_into_buf(16 * 1024 * 1024)
-# encrypt_into_buf(32 * 1024 * 1024)
-# encrypt_into_buf(64 * 1024 * 1024)
-# encrypt_into_buf(128 * 1024 * 1024)
-# encrypt_into_buf(256 * 1024 * 1024)
-# encrypt_into_buf(512 * 1024 * 1024)
-# encrypt_into_buf(1024 * 1024 * 1024)
+    silentremove(fout)
 
-# print("\n encrypt_from")
-# print("| MB    | Seconds |")
-# print("| ----- | ------- |")
-# encrypt_from(32 * 1024)
-# encrypt_from(64 * 1024)
-# encrypt_from(128 * 1024)
-# encrypt_from(256 * 1024)
-# encrypt_from(512 * 1024)
-# encrypt_from(1024 * 1024)
-# encrypt_from(2 * 1024 * 1024)
-# encrypt_from(4 * 1024 * 1024)
-# encrypt_from(8 * 1024 * 1024)
-# encrypt_from(16 * 1024 * 1024)
-# encrypt_from(32 * 1024 * 1024)
-# encrypt_from(64 * 1024 * 1024)
-# encrypt_from(128 * 1024 * 1024)
-# encrypt_from(256 * 1024 * 1024)
-# encrypt_from(512 * 1024 * 1024)
-# encrypt_from(1024 * 1024 * 1024)
+    deltas = []
+    for _ in range(3):
 
-# tmp_dir = create_directory_in_home("rencrypt_tmp")
-# sizes_mb = [
-#     0.03125,
-#     0.0625,
-#     0.125,
-#     0.25,
-#     0.5,
-#     1,
-#     2,
-#     4,
-#     8,
-#     16,
-#     32,
-#     64,
-#     128,
-#     256,
-#     512,
-#     1024,
-# ]
-# print("\n encrypt_file")
-# print("| MB | Seconds |")
-# print("| -- | ------- |")
-# for size in sizes_mb:
-#     file_path = f"{tmp_dir}/test_{size}M.raw"
-#     create_file_with_size(file_path, int(size * 1024 * 1024))
-#     encrypt_file(file_path, file_path + ".enc")
-#     delete_file(file_path)
-# delete_dir(tmp_dir)
+        a = datetime.datetime.now()
 
-# print("\n decrypt")
-# print("| MB    | Seconds |")
-# print("| ----- | ------- |")
-# decrypt(32 * 1024)
-# decrypt(64 * 1024)
-# decrypt(128 * 1024)
-# decrypt(256 * 1024)
-# decrypt(512 * 1024)
-# decrypt(1024 * 1024)
-# decrypt(2 * 1024 * 1024)
-# decrypt(4 * 1024 * 1024)
-# decrypt(8 * 1024 * 1024)
-# decrypt(16 * 1024 * 1024)
-# decrypt(32 * 1024 * 1024)
-# decrypt(64 * 1024 * 1024)
-# decrypt(128 * 1024 * 1024)
-# decrypt(256 * 1024 * 1024)
-# decrypt(512 * 1024 * 1024)
-# decrypt(1024 * 1024 * 1024)
+        with open(fout, "wb", buffering=chunk_len) as file_out:
+            for read in read_file_in_chunks(fin, buf):
+                file_out.write(buf[:read])
+            file_out.flush()
 
-# print("\n decrypt_into_buf")
-# print("| MB    | Seconds |")
-# print("| ----- | ------- |")
-# decrypt_into_buf(32 * 1024)
-# decrypt_into_buf(64 * 1024)
-# decrypt_into_buf(128 * 1024)
-# decrypt_into_buf(256 * 1024)
-# decrypt_into_buf(512 * 1024)
-# decrypt_into_buf(1024 * 1024)
-# decrypt_into_buf(2 * 1024 * 1024)
-# decrypt_into_buf(4 * 1024 * 1024)
-# decrypt_into_buf(8 * 1024 * 1024)
-# decrypt_into_buf(16 * 1024 * 1024)
-# decrypt_into_buf(32 * 1024 * 1024)
-# decrypt_into_buf(64 * 1024 * 1024)
-# decrypt_into_buf(128 * 1024 * 1024)
-# decrypt_into_buf(256 * 1024 * 1024)
-# decrypt_into_buf(512 * 1024 * 1024)
-# decrypt_into_buf(1024 * 1024 * 1024)
+        b = datetime.datetime.now()
+        delta = b - a
+        deltas.append(delta.total_seconds())
 
-# print("\n decrypt_from")
-# print("| MB    | Seconds |")
-# print("| ----- | ------- |")
-# decrypt_from(32 * 1024)
-# decrypt_from(64 * 1024)
-# decrypt_from(128 * 1024)
-# decrypt_from(256 * 1024)
-# decrypt_from(512 * 1024)
-# decrypt_from(1024 * 1024)
-# decrypt_from(2 * 1024 * 1024)
-# decrypt_from(4 * 1024 * 1024)
-# decrypt_from(8 * 1024 * 1024)
-# decrypt_from(16 * 1024 * 1024)
-# decrypt_from(32 * 1024 * 1024)
-# decrypt_from(64 * 1024 * 1024)
-# decrypt_from(128 * 1024 * 1024)
-# decrypt_from(256 * 1024 * 1024)
-# decrypt_from(512 * 1024 * 1024)
-# decrypt_from(1024 * 1024 * 1024)
+    silentremove(fout)
 
-# print("\n decrypt_file")
-# path_in = "/home/gnome/tmp/Zero.Days.2016.720p.WEBRip.x264.AAC-ETRG.mp4"
-# path_out = "/home/gnome/tmp/test.enc"
-# print("| Seconds |")
-# print("| -------- |")
-# decrypt_file(path_in, path_out)
+    average = sum(deltas, 0) / len(deltas)
+    filesize = get_file_size(fin)
+    print(f"| {(filesize / 1024 / 1024):.5g} | {average:.5f} |")
+
+
+tmp_dir = create_directory_in_home("rencrypt_tmp")
+sizes_mb = [
+    0.03125,
+    0.0625,
+    0.125,
+    0.25,
+    0.5,
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024,
+    2 * 1024,
+    4 * 1024,
+    8 * 1024,
+    16 * 1024,
+]
+
+print("encrypt")
+print("| MB    | Seconds |")
+print("| ----- | ------- |")
+encrypt(32 * 1024)
+encrypt(64 * 1024)
+encrypt(128 * 1024)
+encrypt(256 * 1024)
+encrypt(512 * 1024)
+encrypt(1024 * 1024)
+encrypt(2 * 1024 * 1024)
+encrypt(4 * 1024 * 1024)
+encrypt(8 * 1024 * 1024)
+encrypt(16 * 1024 * 1024)
+encrypt(32 * 1024 * 1024)
+encrypt(64 * 1024 * 1024)
+encrypt(128 * 1024 * 1024)
+encrypt(256 * 1024 * 1024)
+encrypt(512 * 1024 * 1024)
+encrypt(1024 * 1024 * 1024)
+
+print("\n encrypt_into")
+print("| MB    | Seconds |")
+print("| ----- | ------- |")
+encrypt_into(32 * 1024)
+encrypt_into(64 * 1024)
+encrypt_into(128 * 1024)
+encrypt_into(256 * 1024)
+encrypt_into(512 * 1024)
+encrypt_into(1024 * 1024)
+encrypt_into(2 * 1024 * 1024)
+encrypt_into(4 * 1024 * 1024)
+encrypt_into(8 * 1024 * 1024)
+encrypt_into(16 * 1024 * 1024)
+encrypt_into(32 * 1024 * 1024)
+encrypt_into(64 * 1024 * 1024)
+encrypt_into(128 * 1024 * 1024)
+encrypt_into(256 * 1024 * 1024)
+encrypt_into(512 * 1024 * 1024)
+encrypt_into(1024 * 1024 * 1024)
+
+print("\n encrypt_from")
+print("| MB    | Seconds |")
+print("| ----- | ------- |")
+encrypt_from(32 * 1024)
+encrypt_from(64 * 1024)
+encrypt_from(128 * 1024)
+encrypt_from(256 * 1024)
+encrypt_from(512 * 1024)
+encrypt_from(1024 * 1024)
+encrypt_from(2 * 1024 * 1024)
+encrypt_from(4 * 1024 * 1024)
+encrypt_from(8 * 1024 * 1024)
+encrypt_from(16 * 1024 * 1024)
+encrypt_from(32 * 1024 * 1024)
+encrypt_from(64 * 1024 * 1024)
+encrypt_from(128 * 1024 * 1024)
+encrypt_from(256 * 1024 * 1024)
+encrypt_from(512 * 1024 * 1024)
+encrypt_from(1024 * 1024 * 1024)
+
+print("\n encrypt")
+print("| MB | Seconds |")
+print("| -- | ------- |")
+for size in [size for size in sizes_mb if size <= 1024]:
+    encrypt(int(size * 1024 * 1024))
+
+print("\n encrypt_file")
+print("| MB | Seconds |")
+print("| -- | ------- |")
+for size in sizes_mb:
+    file_path = f"{tmp_dir}/test_{size}M.raw"
+    create_file_with_size(file_path, int(size * 1024 * 1024))
+    encrypt_file(file_path, file_path + ".enc")
+    delete_file(file_path)
+
+print("\n decrypt")
+print("| MB | Seconds |")
+print("| -- | ------- |")
+for size in [size for size in sizes_mb if size <= 1024]:
+    decrypt(int(size * 1024 * 1024))
+
+print("\n decrypt_into")
+print("| MB    | Seconds |")
+print("| ----- | ------- |")
+decrypt_into(32 * 1024)
+decrypt_into(64 * 1024)
+decrypt_into(128 * 1024)
+decrypt_into(256 * 1024)
+decrypt_into(512 * 1024)
+decrypt_into(1024 * 1024)
+decrypt_into(2 * 1024 * 1024)
+decrypt_into(4 * 1024 * 1024)
+decrypt_into(8 * 1024 * 1024)
+decrypt_into(16 * 1024 * 1024)
+decrypt_into(32 * 1024 * 1024)
+decrypt_into(64 * 1024 * 1024)
+decrypt_into(128 * 1024 * 1024)
+decrypt_into(256 * 1024 * 1024)
+decrypt_into(512 * 1024 * 1024)
+decrypt_into(1024 * 1024 * 1024)
 
 print("\n decrypt_from")
 print("| MB    | Seconds |")
 print("| ----- | ------- |")
+decrypt_from(32 * 1024)
+decrypt_from(64 * 1024)
+decrypt_from(128 * 1024)
+decrypt_from(256 * 1024)
+decrypt_from(512 * 1024)
+decrypt_from(1024 * 1024)
+decrypt_from(2 * 1024 * 1024)
+decrypt_from(4 * 1024 * 1024)
+decrypt_from(8 * 1024 * 1024)
+decrypt_from(16 * 1024 * 1024)
+decrypt_from(32 * 1024 * 1024)
+decrypt_from(64 * 1024 * 1024)
+decrypt_from(128 * 1024 * 1024)
+decrypt_from(256 * 1024 * 1024)
+decrypt_from(512 * 1024 * 1024)
+decrypt_from(1024 * 1024 * 1024)
+
+print("\n decrypt_file")
+print("| MB | Seconds |")
+print("| -- | ------- |")
+for size in sizes_mb:
+    file_path = f"{tmp_dir}/test_{size}M.raw"
+    create_file_with_size(file_path, int(size * 1024 * 1024))
+    decrypt_file(file_path, file_path + ".enc")
+    delete_file(file_path)
+
+print("\n encrypt_speed_per_mb")
+print("| MB    | MB/s |")
+print("| ----- | ------- |")
+encrypt_speed_per_mb(1024)
+encrypt_speed_per_mb(2 * 1024)
+encrypt_speed_per_mb(4 * 1024)
+encrypt_speed_per_mb(8 * 1024)
+encrypt_speed_per_mb(16 * 1024)
+encrypt_speed_per_mb(32 * 1024)
 encrypt_speed_per_mb(64 * 1024)
 encrypt_speed_per_mb(128 * 1024)
 encrypt_speed_per_mb(256 * 1024)
@@ -490,9 +584,5 @@ encrypt_speed_per_mb(2 * 1024 * 1024)
 encrypt_speed_per_mb(4 * 1024 * 1024)
 encrypt_speed_per_mb(8 * 1024 * 1024)
 encrypt_speed_per_mb(16 * 1024 * 1024)
-# encrypt_speed_per_mb(32 * 1024 * 1024)
-# encrypt_speed_per_mb(64 * 1024 * 1024)
-# encrypt_speed_per_mb(128 * 1024 * 1024)
-# encrypt_speed_per_mb(256 * 1024 * 1024)
-# encrypt_speed_per_mb(512 * 1024 * 1024)
-# encrypt_speed_per_mb(1024 * 1024 * 1024)
+
+delete_dir(tmp_dir)

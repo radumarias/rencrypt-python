@@ -10,11 +10,11 @@ use rand_core::{CryptoRng, RngCore, SeedableRng};
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelSlice, ParallelSliceMut};
-use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NONCE_LEN, NonceSequence, OpeningKey, SealingKey, UnboundKey};
+use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey};
 use ring::error::Unspecified;
 use zeroize::Zeroize;
 
-// 128B seems to be the optimal block size that offers the max MB/s speed for encryption,
+// 256KB seems to be the optimal block size that offers the max MB/s speed for encryption,
 // on benchmarks that seem to be the case.
 // We performed 10.000 encryption operations for each size varying from 64KB to 1GB,
 // after 8MB it tops up to similar values.
@@ -72,7 +72,7 @@ pub struct REncrypt {
     cipher: Cipher,
     sealing_key: Arc<Mutex<SealingKey<RandomNonceSequenceWrapper>>>,
     nonce_sequence: Arc<Mutex<RandomNonceSequence>>,
-    last_nonce: Arc<Mutex<Option<Vec<u8>>>>,
+    last_nonce: Arc<Mutex<Vec<u8>>>,
     opening_key: Arc<Mutex<OpeningKey<ExistingNonceSequence>>>,
     key: Vec<u8>,
 }
@@ -81,13 +81,15 @@ pub struct REncrypt {
 impl REncrypt {
     #[new]
     pub fn new(cipher: Cipher, key: &[u8]) -> Self {
+        // todo: expose other providers
+        let provider = Provider::Ring;
         let key = key.to_vec();
 
-        let (sealing_key, nonce_sequence) = create_sealing_key(cipher, &key);
-        let (opening_key, last_nonce) = create_opening_key(cipher, &key);
+        let (sealing_key, nonce_sequence) = create_sealing_key(provider, cipher, &key);
+        let (opening_key, last_nonce) = create_opening_key(provider, cipher, &key);
 
         Self {
-            provider: Provider::Ring,
+            provider,
             cipher,
             sealing_key: Arc::new(Mutex::new(sealing_key)),
             nonce_sequence,
@@ -107,159 +109,256 @@ impl REncrypt {
         self.get_tag_len() + self.get_nonce_len()
     }
 
-    // #[pyo3(signature = (buf = [42], len = 42, aad = &[42]))]
-    pub fn encrypt<'py>(&self, buf: &Bound<'py, PyByteArray>, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_bytes_mut() };
-        let tag_len = self.get_tag_len();
-        let nonce_len = self.get_nonce_len();
-        encrypt(&mut data[..len + self.overhead()], len, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_len, nonce_len);
+    pub fn encrypt<'py>(&self, plaintext: &Bound<'py, PyByteArray>, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let data = unsafe { plaintext.as_bytes_mut() };
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(data, len, self.get_tag_len(), self.get_nonce_len());
+        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
         Ok(len + self.overhead())
     }
 
-    pub fn encrypt_into<'py>(&self, plaintext: &[u8], buf: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_bytes_mut() };
+    pub fn encrypt_into<'py>(&self, plaintext: &[u8], ciphertext: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let data = unsafe { ciphertext.as_bytes_mut() };
         copy_slice(plaintext, data);
-        let tag_len = self.get_tag_len();
-        let nonce_len = self.get_nonce_len();
-        encrypt(&mut data[..plaintext.len() + self.overhead()], plaintext.len(), block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_len, nonce_len);
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(data, plaintext.len(), self.get_tag_len(), self.get_nonce_len());
+        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
         Ok(plaintext.len() + self.overhead())
     }
 
     pub fn encrypt_from<'py>(&mut self, plaintext: &[u8], block_index: u64, aad: &[u8], py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        let mut buf = vec![0; plaintext.len() + self.overhead()];
-        copy_slice(plaintext, &mut buf);
-        let tag_len = self.get_tag_len();
-        let nonce_len = self.get_nonce_len();
-        encrypt(&mut buf, plaintext.len(), block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_len, nonce_len);
-        Ok(PyBytes::new_bound(py, buf.as_slice()))
+        let mut data = vec![0; plaintext.len() + self.overhead()];
+        copy_slice(plaintext, &mut data);
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(&mut data, plaintext.len(), self.get_tag_len(), self.get_nonce_len());
+        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
+        Ok(PyBytes::new_bound(py, data.as_slice()))
     }
 
+    pub fn encrypt_into1<'py>(&self, plaintext: &Bound<'py, PyByteArray>, ciphertext: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let data = unsafe { ciphertext.as_bytes_mut() };
+        unsafe { copy_slice(plaintext.as_bytes_mut(), data); }
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(data, plaintext.len(), self.get_tag_len(), self.get_nonce_len());
+        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
+        Ok(plaintext.len() + self.overhead())
+    }
+
+    pub fn encrypt_from1<'py>(&mut self, plaintext: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8], py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let mut data = vec![0; plaintext.len() + self.overhead()];
+        unsafe { copy_slice(plaintext.as_bytes_mut(), &mut data); }
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(&mut data, plaintext.len(), self.get_tag_len(), self.get_nonce_len());
+        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
+        Ok(PyBytes::new_bound(py, data.as_slice()))
+    }
+
+    #[cfg(target_os = "linux")]
     pub fn encrypt_file(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
-        let tag_len = self.get_tag_len();
-        let nonce_len = self.get_nonce_len();
-        let cipher = self.cipher;
-        let key = &self.key;
+        // if File::open(src).unwrap().metadata().unwrap().len() < 128 * 1024 * 1024 {
+        self.encrypt_file_uring_seq(src, dst, aad)
+        // } else {
+        //     self.encrypt_file_uring_par(src, dst, aad)
+        // }
+    }
 
-        let overhead = self.overhead();
-        let block_len = FILE_BLOCK_LEN;
+    fn encrypt_file_uring_seq(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
+        tokio_uring::start(async {
+            let tag_len = self.get_tag_len();
+            let nonce_len = self.get_nonce_len();
+            let mut block_index = 0_u64;
+            let overhead = self.overhead();
 
-        let fin = File::open(src).unwrap();
-        let file_size = fin.metadata().unwrap().len();
+            // Open the source file for reading
+            let src_file = tokio_uring::fs::File::open(src).await.unwrap();
 
-        {
-            // create out file with preallocated size
-            let fout = File::create(dst).unwrap();
-            fout.set_len(file_size + (file_size / block_len as u64 + 1) * self.overhead() as u64).unwrap();
-            fout.sync_all().unwrap();
+            // Open or create the destination file for writing
+            let dst_file = tokio_uring::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(dst).await.unwrap();
+
+            let mut buf = vec![0u8; FILE_BLOCK_LEN];
+            let mut offset_read = 0;
+            let mut offset_write = 0;
+            let mut tag_out = vec![0u8; tag_len];
+            let mut nonce_out = vec![0u8; nonce_len];
+            loop {
+                let len = {
+                    // try to read a chunk from the source file
+                    let res = src_file.read_exact_at(buf, offset_read).await;
+                    if res.0.is_err() {
+                        // we're at the end of the file, read remaining
+                        let (len, read_buf) = src_file.read_at(res.1, offset_read).await;
+                        let len = len.unwrap();
+                        buf = read_buf;
+                        offset_read += len as u64;
+                        len
+                    } else {
+                        buf = res.1;
+                        offset_read += buf.len() as u64;
+                        buf.len()
+                    }
+                };
+                if len == 0 {
+                    break; // End of file reached
+                }
+
+                // encrypt
+                // encrypt(&mut buf, block_index, &aad, self.sealing_key.clone(), self.nonce_sequence.clone(), &mut tag_out, &mut nonce_out);
+
+                // Write the chunk to the destination file
+                // todo: try to do it without clone
+                // let res = dst_file.write_all_at(buf, offset_write).await;
+                // res.0.unwrap();
+                // buf = res.1;
+                offset_write += len as u64 + overhead as u64;
+                // let res = dst_file.write_all_at(tag_out, offset_write).await;
+                // res.0.unwrap();
+                // tag_out = res.1;
+                // offset_write += tag_len as u64;
+                // let res = dst_file.write_all_at(nonce_out, offset_write).await;
+                // res.0.unwrap();
+                // nonce_out = res.1;
+                // offset_write += nonce_len as u64;
+
+                if len < buf.len() {
+                    // eof
+                    break;
+                }
+
+                block_index += 1;
+            }
+            dst_file.sync_all().await.unwrap();
             File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
-        }
-
-        let chunks: Vec<(u64, usize)> = (0..file_size)
-            .step_by(block_len)
-            .map(|offset| {
-                let end = std::cmp::min(offset + block_len as u64, file_size);
-                (offset, (end - offset) as usize)
-            })
-            .collect();
-        chunks.par_iter().for_each(|&(offset, length)| {
-            // read
-            let mut buffer = vec![0u8; length + overhead];
-            let mut src_file = BufReader::new(File::open(src).expect("Unable to open source file"));
-            src_file.seek(SeekFrom::Start(offset)).expect("Unable to seek in source file");
-            src_file.read_exact(&mut buffer[..length]).expect("Unable to read chunk from source file");
-
-            // encrypt
-            let (sealing_key, nonce_sequence) = create_sealing_key(cipher, &key);
-            let block_index = offset / block_len as u64;
-            encrypt(&mut buffer, length, block_index, &aad, Arc::new(Mutex::new(sealing_key)), nonce_sequence.clone(), tag_len, nonce_len);
-
-            // write
-            let mut dst_file = BufWriter::new(OpenOptions::new().write(true).open(dst).expect("Unable to open destination file"));
-            dst_file.seek(SeekFrom::Start(offset + block_index * overhead as u64)).expect("Unable to seek in destination file");
-            dst_file.write_all(&buffer).expect("Unable to write chunk to destination file");
-            dst_file.flush().expect("Unable to flush destination file");
-
-            buffer.zeroize();
         });
 
-        let fout = File::open(dst).unwrap();
-        fout.sync_data().unwrap();
-        File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
-
         Ok(())
     }
 
-    pub fn encrypt_seq(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
-        let tag_len = self.get_tag_len();
-        let nonce_len = self.get_nonce_len();
-        let cipher = self.cipher;
-        let key = &self.key;
+    // fn encrypt_file_uring_par(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
+    //     let tag_len = self.get_tag_len();
+    //     let nonce_len = self.get_nonce_len();
+    //     let provider = self.provider;
+    //     let cipher = self.cipher;
+    //     let key = &self.key;
+    //
+    //     let overhead = self.overhead();
+    //     let block_len = FILE_BLOCK_LEN;
+    //
+    //     let fin = File::open(src).unwrap();
+    //     let file_size = fin.metadata().unwrap().len();
+    //
+    //     {
+    //         // create out file with preallocated size
+    //         let fout = File::create(dst).unwrap();
+    //         fout.set_len(file_size + (file_size / block_len as u64 + 1) * self.overhead() as u64).unwrap();
+    //         fout.sync_all().unwrap();
+    //         File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
+    //     }
+    //
+    //     let bufs = vec![
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //         (Mutex::new(false), Mutex::new(vec![0u8; block_len])),
+    //     ];
+    //
+    //     let chunks: Vec<(u64, usize)> = (0..file_size)
+    //         .step_by(block_len)
+    //         .map(|offset| {
+    //             let end = std::cmp::min(offset + block_len as u64, file_size);
+    //             (offset, (end - offset) as usize)
+    //         })
+    //         .collect();
+    //     chunks.par_iter().for_each(|&(offset, length)| {
+    //         let src_clone = src.to_string();
+    //         let dst_clone = dst.to_string();
+    //         tokio_uring::start(async {
+    //             let mut buf = None;
+    //             let mut guard = None;
+    //             'outer: loop {
+    //                 for (lock, vec) in &bufs {
+    //                     let res = lock.try_lock();
+    //                     if res.is_err() {
+    //                         continue;
+    //                     } else {
+    //                         guard = Some(res.unwrap());
+    //                         buf = Some(vec);
+    //                         break 'outer;
+    //                     }
+    //                 }
+    //             }
+    //
+    //             // read
+    //             // Open the source file for reading
+    //             let src_file = tokio_uring::fs::File::open(src_clone).await.unwrap();
+    //             // Read a chunk from the source file
+    //             let mut buf = vec![0u8; length];
+    //             let res = src_file.read_exact_at(&mut buf, offset).await;
+    //             res.0.unwrap();
+    //             let mut buf = res.1;
+    //
+    //             // encrypt
+    //             let (sealing_key, nonce_sequence) = create_sealing_key(provider, cipher, &key);
+    //             let mut tag = vec![0u8; tag_len];
+    //             let mut nonce = vec![0u8; nonce_len];
+    //             let block_index = offset / block_len as u64;
+    //             encrypt(&mut buf, block_index, &aad, Arc::new(Mutex::new(sealing_key)), nonce_sequence.clone(), &mut tag, &mut nonce);
+    //
+    //             // Open or create the destination file for writing
+    //             let dst_file = tokio_uring::fs::OpenOptions::new()
+    //                 .write(true)
+    //                 .create(true)
+    //                 .open(dst).await.unwrap();
+    //             // write
+    //             let mut ciphertext_ofset = offset + block_index * overhead as u64;
+    //             // let res = dst_file.write_all_at(buf, ciphertext_ofset).await;
+    //             // res.0.unwrap();
+    //             // buf = res.1;
+    //             ciphertext_ofset += length as u64;
+    //             // dst_file.write_all_at(&tag, ciphertext_ofset).await.expect("Unable to write tag to destination file");
+    //             // ciphertext_ofset += tag_len as u64;
+    //             // dst_file.write_all_at(&nonce, ciphertext_ofset).await.expect("Unable to write nonce to destination file");
+    //             dst_file.sync_all().await.expect("Unable to sync destination file");
+    //         });
+    //     });
+    //
+    //     let fout = File::open(dst).unwrap();
+    //     fout.sync_all().unwrap();
+    //     File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
+    //
+    //     Ok(())
+    // }
 
-        let overhead = self.overhead();
-        let block_len = FILE_BLOCK_LEN;
-
-        let fin = File::open(src).unwrap();
-        let file_size = fin.metadata().unwrap().len();
-
-        let mut buffer = vec![0u8; block_len + overhead];
-        let mut src_file = BufReader::new(File::open(src).expect("Unable to open source file"));
-        let mut dst_file = BufWriter::new(OpenOptions::new().write(true).open(dst).expect("Unable to open destination file"));
-        let (sealing_key, nonce_sequence) = create_sealing_key(cipher, &key);
-        let sealing_key = Arc::new(Mutex::new(sealing_key));
-        let mut block_index = 0;
-        loop {
-            let len = loop {
-                let mut read = 0;
-                let len = src_file.read(&mut buffer[read..]).expect("Unable to read chunk from source file");
-                if len == 0 {
-                    break read;
-                }
-                read += len;
-            };
-            if len == 0 {
-                break;
-            }
-            // encrypt
-            encrypt(&mut buffer, len, block_index, &aad, sealing_key.clone(), nonce_sequence.clone(), tag_len, nonce_len);
-            // write
-            dst_file.write_all(&buffer).expect("Unable to write chunk to destination file");
-            block_index += 1;
-        }
-        dst_file.flush().expect("Unable to flush destination file");
-        buffer.zeroize();
-
-        let fout = File::open(dst).unwrap();
-        fout.sync_data().unwrap();
-        File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
-
-        Ok(())
-    }
-
-    pub fn decrypt<'py>(&mut self, buf: &Bound<'py, PyByteArray>, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_bytes_mut() };
-        let nonce_len = self.get_nonce_len();
-        decrypt(&mut data[..len], block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce_len);
+    pub fn decrypt<'py>(&mut self, ciphertext_and_tag_and_nonce: &Bound<'py, PyByteArray>, len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let data = unsafe { ciphertext_and_tag_and_nonce.as_bytes_mut() };
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(data, len, self.get_nonce_len());
+        decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
         Ok(len - self.overhead())
     }
 
-    pub fn decrypt_into<'py>(&self, ciphertext: &[u8], buf: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_bytes_mut() };
-        copy_slice(ciphertext, data);
-        let nonce_len = self.get_nonce_len();
-        decrypt(&mut data[..ciphertext.len()], block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce_len);
-        Ok(ciphertext.len() - self.overhead())
+    pub fn decrypt_into<'py>(&self, ciphertext_and_tag_and_nonce: &[u8], plaintext: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let data = unsafe { plaintext.as_bytes_mut() };
+        copy_slice(ciphertext_and_tag_and_nonce, data);
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(data, ciphertext_and_tag_and_nonce.len(), self.get_nonce_len());
+        let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
+        Ok(plaintext.len())
     }
 
-    pub fn decrypt_from<'py>(&self, py: Python<'py>, ciphertext: &[u8], block_index: u64, aad: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
-        let mut data = vec![0_u8; ciphertext.len()];
-        copy_slice(ciphertext, &mut data);
-        let nonce_len = self.get_nonce_len();
-        decrypt(&mut data, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce_len);
-        Ok(PyBytes::new_bound(py, &data[..ciphertext.len() - self.overhead()]))
+    pub fn decrypt_from<'py>(&self, py: Python<'py>, ciphertext_and_tag_and_nonce: &[u8], block_index: u64, aad: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+        let mut data = vec![0_u8; ciphertext_and_tag_and_nonce.len()];
+        copy_slice(ciphertext_and_tag_and_nonce, &mut data);
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(&mut data, ciphertext_and_tag_and_nonce.len(), self.get_nonce_len());
+        let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
+        Ok(PyBytes::new_bound(py, &plaintext))
     }
 
     pub fn decrypt_file(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
         let nonce_len = self.get_nonce_len();
+        let provider = self.provider;
         let cipher = self.cipher;
         let key = &self.key;
 
@@ -287,27 +386,29 @@ impl REncrypt {
             .collect();
         chunks.par_iter().for_each(|&(offset, length)| {
             // read
-            let mut buffer = vec![0u8; length];
+            let mut buf = vec![0u8; length];
             let mut src_file = BufReader::new(File::open(src).expect("Unable to open source file"));
             src_file.seek(SeekFrom::Start(offset)).expect("Unable to seek in source file");
-            src_file.read_exact(&mut buffer).expect("Unable to read chunk from source file");
+            src_file.read_exact(&mut buf).expect("Unable to read chunk from source file");
 
             // decrypt
-            let (opening_key, last_nonce) = create_opening_key(cipher, &key);
+            let (opening_key, last_nonce) = create_opening_key(provider, cipher, &key);
             let block_index = offset / block_len as u64;
-            decrypt(&mut buffer, block_index, &aad, Arc::new(Mutex::new(opening_key)), last_nonce.clone(), nonce_len);
+            let (ciphertext_and_tag, nonce) = buf.split_at_mut(length - nonce_len);
+            decrypt(ciphertext_and_tag, block_index, &aad, Arc::new(Mutex::new(opening_key)), last_nonce.clone(), nonce);
 
             // write
             let mut dst_file = BufWriter::new(OpenOptions::new().write(true).open(dst).expect("Unable to open destination file"));
             dst_file.seek(SeekFrom::Start(offset - block_index * overhead as u64)).expect("Unable to seek in destination file");
-            dst_file.write_all(&buffer[..length - overhead]).expect("Unable to write chunk to destination file");
+            dst_file.write_all(&buf[..length - overhead]).expect("Unable to write chunk to destination file");
             dst_file.flush().expect("Unable to flush destination file");
+            dst_file.into_inner().unwrap().sync_all().expect("Unable to sync destination file");
 
-            buffer.zeroize();
+            buf.zeroize();
         });
 
         let fout = File::open(dst).unwrap();
-        fout.sync_data().unwrap();
+        fout.sync_all().unwrap();
         File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
 
         Ok(())
@@ -321,21 +422,11 @@ impl REncrypt {
     }
 
     fn get_nonce_len(&self) -> usize {
-        match self.provider {
-            Provider::Ring => get_ring_algorithm(self.cipher).nonce_len(),
-            Provider::RustCrypto => {
-                todo!()
-            }
-        }
+        get_nonce_len(self.provider, self.cipher)
     }
 
     fn get_tag_len(&self) -> usize {
-        match self.provider {
-            Provider::Ring => get_ring_algorithm(self.cipher).tag_len(),
-            Provider::RustCrypto => {
-                todo!()
-            }
-        }
+        get_tag_len(self.provider, self.cipher)
     }
 }
 
@@ -355,14 +446,14 @@ fn rencrypt<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
 
 pub struct RandomNonceSequence {
     rng: Box<dyn RngCore + Send + Sync>,
-    last_nonce: Option<Vec<u8>>,
+    last_nonce: Vec<u8>,
 }
 
-impl Default for RandomNonceSequence {
-    fn default() -> Self {
+impl RandomNonceSequence {
+    pub fn new(nonce_len: usize) -> Self {
         Self {
             rng: Box::new(create_rng()),
-            last_nonce: None,
+            last_nonce: vec![0; nonce_len],
         }
     }
 }
@@ -370,9 +461,8 @@ impl Default for RandomNonceSequence {
 impl NonceSequence for RandomNonceSequence {
     // called once for each seal operation
     fn advance(&mut self) -> Result<Nonce, Unspecified> {
-        self.last_nonce = Some(vec![0; NONCE_LEN]);
-        self.rng.fill_bytes(self.last_nonce.as_mut().unwrap());
-        Nonce::try_assume_unique_for_key(self.last_nonce.as_mut().unwrap())
+        self.rng.fill_bytes(&mut self.last_nonce);
+        Nonce::try_assume_unique_for_key(&self.last_nonce)
     }
 }
 
@@ -414,9 +504,8 @@ fn get_ring_algorithm(cipher: Cipher) -> &'static ring::aead::Algorithm {
     }
 }
 
-fn encrypt(buf: &mut [u8], len: usize, block_index: u64, aad: &[u8],
-           sealing_key: Arc<Mutex<SealingKey<RandomNonceSequenceWrapper>>>, nonce_sequence: Arc<Mutex<RandomNonceSequence>>,
-           tag_len: usize, nonce_len: usize) {
+fn encrypt(plaintext: &mut [u8], block_index: u64, aad: &[u8],
+           sealing_key: Arc<Mutex<SealingKey<RandomNonceSequenceWrapper>>>, nonce_sequence: Arc<Mutex<RandomNonceSequence>>, tag_out: &mut [u8], nonce_out: &mut [u8]) {
     // lock here to keep the lock while encrypting
     let mut sealing_key = sealing_key.lock().unwrap();
 
@@ -426,22 +515,18 @@ fn encrypt(buf: &mut [u8], len: usize, block_index: u64, aad: &[u8],
     aad2[aad.len()..].copy_from_slice(&block_index_bytes);
     let aad = Aad::<&[u8]>::from(aad2.as_ref());
 
-    let tag = sealing_key.seal_in_place_separate_tag(aad, &mut buf[..len]).unwrap();
+    let tag = sealing_key.seal_in_place_separate_tag(aad, plaintext).unwrap();
 
-    let tag_start = len;
-    buf[tag_start..tag_start + tag_len].copy_from_slice(tag.as_ref());
-
-    let nonce_start = tag_start + tag_len;
-    buf[nonce_start..nonce_start + nonce_len].copy_from_slice(nonce_sequence.lock().unwrap().last_nonce.as_ref().unwrap().as_ref());
+    tag_out.copy_from_slice(tag.as_ref());
+    nonce_out.copy_from_slice(&nonce_sequence.lock().unwrap().last_nonce);
 }
 
-fn decrypt<'a>(buf: &'a mut [u8], block_index: u64, aad: &[u8], opening_key: Arc<Mutex<OpeningKey<ExistingNonceSequence>>>,
-               last_nonce: Arc<Mutex<Option<Vec<u8>>>>, nonce_len: usize) -> &'a mut [u8] {
+fn decrypt<'a>(ciphertext_and_tag: &'a mut [u8], block_index: u64, aad: &[u8], opening_key: Arc<Mutex<OpeningKey<ExistingNonceSequence>>>,
+               last_nonce: Arc<Mutex<Vec<u8>>>, nonce: &[u8]) -> &'a mut [u8] {
     // lock here to keep the lock while decrypting
     let mut opening_key = opening_key.lock().unwrap();
 
-    let len = buf.len();
-    last_nonce.lock().unwrap().replace(buf[len - nonce_len..len].to_vec());
+    last_nonce.lock().unwrap().copy_from_slice(nonce);
 
     let block_index_bytes = block_index.to_le_bytes();
     let mut aad2 = vec![0; aad.len() + 8];
@@ -449,22 +534,22 @@ fn decrypt<'a>(buf: &'a mut [u8], block_index: u64, aad: &[u8], opening_key: Arc
     aad2[aad.len()..].copy_from_slice(&block_index_bytes);
     let aad = Aad::<&[u8]>::from(aad2.as_ref());
 
-    let plaintext = opening_key.open_within(aad, &mut buf[..len - nonce_len], 0..).unwrap();
+    let plaintext = opening_key.open_within(aad, ciphertext_and_tag, 0..).unwrap();
     plaintext
 }
 
-fn copy_slice(src: &[u8], buf: &mut [u8]) {
+fn copy_slice(src: &[u8], dst: &mut [u8]) {
     if src.len() < 1024 * 1024 {
         let src_len = src.len();
-        copy_slice_internal(&mut buf[..src_len], src);
+        copy_slice_internal(&mut dst[..src_len], src);
     } else {
-        copy_slice_concurrently(&mut buf[..src.len()], src, 16 * 1024);
+        copy_slice_concurrently(&mut dst[..src.len()], src, 16 * 1024);
     }
 }
 
-fn create_sealing_key(cipher: Cipher, key: &Vec<u8>) -> (SealingKey<RandomNonceSequenceWrapper>, Arc<Mutex<RandomNonceSequence>>) {
+fn create_sealing_key(provider: Provider, cipher: Cipher, key: &Vec<u8>) -> (SealingKey<RandomNonceSequenceWrapper>, Arc<Mutex<RandomNonceSequence>>) {
     // Create a new NonceSequence type which generates nonces
-    let nonce_seq = Arc::new(Mutex::new(RandomNonceSequence::default()));
+    let nonce_seq = Arc::new(Mutex::new(RandomNonceSequence::new(get_nonce_len(provider, cipher))));
     let nonce_sequence = nonce_seq.clone();
     let nonce_wrapper = RandomNonceSequenceWrapper::new(nonce_seq.clone());
     // Create a new AEAD key without a designated role or nonce sequence
@@ -476,8 +561,8 @@ fn create_sealing_key(cipher: Cipher, key: &Vec<u8>) -> (SealingKey<RandomNonceS
     (sealing_key, nonce_sequence)
 }
 
-fn create_opening_key(cipher: Cipher, key: &Vec<u8>) -> (OpeningKey<ExistingNonceSequence>, Arc<Mutex<Option<Vec<u8>>>>) {
-    let last_nonce = Arc::new(Mutex::new(None));
+fn create_opening_key(provider: Provider, cipher: Cipher, key: &Vec<u8>) -> (OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>) {
+    let last_nonce = Arc::new(Mutex::new(vec![0_u8; get_nonce_len(provider, cipher)]));
     let unbound_key = UnboundKey::new(get_ring_algorithm(cipher), key).unwrap();
     let nonce_sequence = ExistingNonceSequence::new(last_nonce.clone());
     let opening_key = OpeningKey::new(unbound_key, nonce_sequence);
@@ -490,20 +575,52 @@ pub fn hash(data: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
+fn get_nonce_len(provider: Provider, cipher: Cipher) -> usize {
+    match provider {
+        Provider::Ring => get_ring_algorithm(cipher).nonce_len(),
+        Provider::RustCrypto => {
+            todo!()
+        }
+    }
+}
+
+fn get_tag_len(provider: Provider, cipher: Cipher) -> usize {
+    match provider {
+        Provider::Ring => get_ring_algorithm(cipher).tag_len(),
+        Provider::RustCrypto => {
+            todo!()
+        }
+    }
+}
+
+/// Slit plaintext__and_tag__and_nonce in (plaintext, tag, nonce)
+fn split_plaintext_tag_nonce_mut<'a>(data: &'a mut [u8], plaintext_len: usize, tag_len: usize, nonce_len: usize) -> (&'a mut [u8], &'a mut [u8], &'a mut [u8]) {
+    let (plaintext, tag_and_nonce_and_free) = data.split_at_mut(plaintext_len);
+    let (tag, nonce_and_free) = tag_and_nonce_and_free.split_at_mut(tag_len);
+    let (nonce, _) = nonce_and_free.split_at_mut(nonce_len);
+    (plaintext, tag, nonce)
+}
+
+/// Slit plaintext__and_tag__and_nonce in (plaintext_and_tag, nonce)
+fn split_plaintext_and_tag_nonce_mut<'a>(data: &'a mut [u8], plaintext_and_tag_and_nonce_len: usize, nonce_len: usize) -> (&'a mut [u8], &'a mut [u8]) {
+    let (plaintext_and_tag, nonce_and_free) = data.split_at_mut(plaintext_and_tag_and_nonce_len - nonce_len);
+    let (nonce, _) = nonce_and_free.split_at_mut(nonce_len);
+    (plaintext_and_tag, nonce)
+}
 
 pub(crate) struct ExistingNonceSequence {
-    last_nonce: Arc<Mutex<Option<Vec<u8>>>>,
+    last_nonce: Arc<Mutex<Vec<u8>>>,
 }
 
 impl ExistingNonceSequence {
-    pub fn new(last_nonce: Arc<Mutex<Option<Vec<u8>>>>) -> Self {
+    pub fn new(last_nonce: Arc<Mutex<Vec<u8>>>) -> Self {
         Self { last_nonce }
     }
 }
 
 impl NonceSequence for ExistingNonceSequence {
     fn advance(&mut self) -> Result<Nonce, Unspecified> {
-        Nonce::try_assume_unique_for_key(self.last_nonce.lock().unwrap().as_mut().unwrap())
+        Nonce::try_assume_unique_for_key(&self.last_nonce.lock().unwrap())
     }
 }
 
