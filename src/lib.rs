@@ -1,10 +1,8 @@
-mod encryptor;
-
 use std::io::{Read, Seek, Write};
 use std::sync::{Arc, Mutex};
 
 use pyo3::prelude::*;
-use pyo3::types::{PyByteArray, PyBytes};
+use pyo3::types::PyByteArray;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use rayon::iter::IndexedParallelIterator;
@@ -13,6 +11,8 @@ use rayon::prelude::{ParallelSlice, ParallelSliceMut};
 use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey};
 use ring::error::Unspecified;
 use zeroize::Zeroize;
+
+mod encryptor;
 
 // 256KB seems to be the optimal block size that offers the max MB/s speed for encryption,
 // on benchmarks that seem to be the case.

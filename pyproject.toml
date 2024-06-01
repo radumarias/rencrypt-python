@@ -3,7 +3,7 @@ requires = ["maturin>=1.5,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "REncrypt"
+name = "rencrypt"
 authors = [
   { name="Radu Marias", email="radumarias@gmail.com" },
 ]
