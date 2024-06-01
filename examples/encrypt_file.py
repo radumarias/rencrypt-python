@@ -8,10 +8,6 @@ from rencrypt import REncrypt, Cipher
 import hashlib
 
 
-def zeroize(data):
-    ctypes.memset(ctypes.c_void_p(id(data)), 0, len(data))
-
-
 def read_file_in_chunks(file_path, buf):
     with open(file_path, "rb") as file:
         buffered_reader = io.BufferedReader(file, buffer_size=len(buf))
@@ -80,6 +76,8 @@ chunk_len = 256 * 1024
 
 cipher = Cipher.AES256GCM
 key = cipher.generate_key()
+# The key is copied and the input key is zeroized for security reasons.
+# The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
 plaintext_len, _, buf = enc.create_buf(chunk_len)
 
@@ -110,7 +108,6 @@ compare_files_by_hash(fin, tmp)
 
 delete_dir(tmp_dir)
 # best practice, you should always zeroize the plaintext and key after you are done with them
-zeroize(key)
-zeroize(buf)
+enc.zeroize(buf)
 
 print("bye!")

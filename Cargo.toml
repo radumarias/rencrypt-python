@@ -21,7 +21,7 @@ codegen-units = 16
 rpath = false
 
 [dependencies]
-pyo3 = { version = "0.21.2", features = ["extension-module"] }
+pyo3 = { version = "0.21.2", features = ["extension-module", "auto-initialize"] }
 ring = "0.17.8"
 rand = "0.8.5"
 rand_core = "0.6.4"

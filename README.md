@@ -333,12 +333,16 @@ You can see more in [examples](https://github.com/radumarias/rencrypt-python/tre
 This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
 ```python
+import ctypes
 from rencrypt import REncrypt, Cipher
 import os
+
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 cipher = Cipher.AES256GCM
 key = cipher.generate_key()
+# The key is copied and the input key is zeroized for security reasons.
+# The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
 
 # we get a buffer based on block len 4096 plaintext
@@ -348,11 +352,12 @@ aad = b"AAD"
 
 # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
 # but for the sake of example we will allocate and copy the data
-plaintext = os.urandom(plaintext_len)
+plaintext = bytearray(os.urandom(plaintext_len))
 # enc.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
-enc.copy_slice(plaintext, buf)
- # encrypt it, this will encrypt in-place the data in the buffer
- print("encryping...")
+# enc.copy_slice takes bytes as input, enc.copy_slice1 takes bytearray
+enc.copy_slice1(plaintext, buf)
+# encrypt it, this will encrypt in-place the data in the buffer
+print("encryping...")
 ciphertext_len = enc.encrypt(buf, plaintext_len, 42, aad)
 cipertext = buf[:ciphertext_len]
 # you can do something with the ciphertext
@@ -364,7 +369,11 @@ print("decryping...")
 plaintext_len = enc.decrypt(buf, ciphertext_len, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
-# best practice, you should always zeroize the plaintext and key after you are done with them
+
+# best practice, you should always zeroize the plaintext after you are done with it
+enc.zeroize(plaintext)
+enc.zeroize(plaintext2)
+
 print("bye!")
 ```
 
@@ -373,6 +382,7 @@ You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 ## Encrypt and decrypt a file
 
 ```python
+import ctypes
 import errno
 import io
 import os
@@ -450,6 +460,8 @@ chunk_len = 256 * 1024
 
 cipher = Cipher.AES256GCM
 key = cipher.generate_key()
+# The key is copied and the input key is zeroized for security reasons.
+# The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
 plaintext_len, _, buf = enc.create_buf(chunk_len)
 
@@ -480,6 +492,7 @@ compare_files_by_hash(fin, tmp)
 
 delete_dir(tmp_dir)
 # best practice, you should always zeroize the plaintext and key after you are done with them
+enc.zeroize(buf)
 
 print("bye!")
 ```
@@ -493,12 +506,15 @@ This is a bit slower than handling data only via the buffer, especially for larg
 For `encrypt_into()`/`decrypt_into()` the plaintext is `bytes`.
 
 ```python
+import ctypes
 from rencrypt import REncrypt, Cipher
 import os
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 cipher = Cipher.AES256GCM
 key = cipher.generate_key()
+# The key is copied and the input key is zeroized for security reasons.
+# The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
 
 # we get a buffer based on block len 4096 plaintext
@@ -506,11 +522,11 @@ enc = REncrypt(cipher, key)
 plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
 aad = b"AAD"
 
-plaintext = bytes(os.urandom(plaintext_len))
+plaintext = bytearray(os.urandom(plaintext_len))
 
  # encrypt it, after this will have the ciphertext in the buffer
- print("encryping...")
-ciphertext_len = enc.encrypt_into(plaintext, buf, 42, aad)
+print("encryping...")
+ciphertext_len = enc.encrypt_into1(plaintext, buf, 42, aad)
 cipertext = bytes(buf[:ciphertext_len])
 
 # decrypt it
@@ -518,7 +534,11 @@ print("decryping...")
 plaintext_len = enc.decrypt_into(cipertext, buf, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
-# best practice, you should always zeroize the plaintext and key after you are done with them
+
+# best practice, you should always zeroize the plaintext after you are done with it
+enc.zeroize(plaintext)
+enc.zeroize(plaintext2)
+
 print("bye!")
 ```
 
@@ -534,27 +554,34 @@ This is the slowest option, especially for large plaintext, because it allocates
 For `encrypt_from()`/`decrypt_from()` the plaintext is `bytes`.
 
 ```python
+import ctypes
 from rencrypt import REncrypt, Cipher
 import os
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 cipher = Cipher.AES256GCM
 key = cipher.generate_key()
+# The key is copied and the input key is zeroized for security reasons.
+# The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
 
 aad = b"AAD"
 
-plaintext = os.urandom(4096)
+plaintext = bytearray(os.urandom(4096))
 
  # encrypt it, this will return the ciphertext
- print("encryping...")
-ciphertext = enc.encrypt_from(plaintext, 42, aad)
+print("encryping...")
+ciphertext = enc.encrypt_from1(plaintext, 42, aad)
 
 # decrypt it
 print("decryping...")
-plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
+plaintext2 = enc.decrypt_from1(ciphertext, 42, aad)
 assert plaintext == plaintext2
-# best practice, you should always zeroize the plaintext and key after you are done with them
+
+# best practice, you should always zeroize the plaintext after you are done with it
+enc.zeroize(plaintext)
+enc.zeroize(plaintext2)
+
 print("bye!")
 ```
 

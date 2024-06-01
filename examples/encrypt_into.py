@@ -5,12 +5,11 @@ import ctypes
 from rencrypt import REncrypt, Cipher
 import os
 
-def zeroize(data):
-    ctypes.memset(ctypes.c_void_p(id(data)), 0, len(data))
-
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 cipher = Cipher.AES256GCM
 key = cipher.generate_key()
+# The key is copied and the input key is zeroized for security reasons.
+# The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
 
 # we get a buffer based on block len 4096 plaintext
@@ -18,11 +17,11 @@ enc = REncrypt(cipher, key)
 plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
 aad = b"AAD"
 
-plaintext = bytes(os.urandom(plaintext_len))
+plaintext = bytearray(os.urandom(plaintext_len))
 
  # encrypt it, after this will have the ciphertext in the buffer
 print("encryping...")
-ciphertext_len = enc.encrypt_into(plaintext, buf, 42, aad)
+ciphertext_len = enc.encrypt_into1(plaintext, buf, 42, aad)
 cipertext = bytes(buf[:ciphertext_len])
 
 # decrypt it
@@ -32,9 +31,7 @@ plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
 
 # best practice, you should always zeroize the plaintext after you are done with it
-# best practice, you should always zeroize the plaintext and key after you are done with them
-zeroize(key)
-zeroize(plaintext)
-zeroize(plaintext2)
+enc.zeroize(plaintext)
+enc.zeroize(plaintext2)
 
 print("bye!")
