@@ -1,6 +1,7 @@
 # REncrypt
 
 [![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
+[![PyPy](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPy.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPy.yml)
 
 A Python encryption library implemented in Rust. It supports `AEAD` with `AES-GCM` and `ChaCha20Poly1305`. It uses [ring](https://crates.io/crates/ring) to handle encryption.  
 If offers slightly higher speed compared to other Python libs, especially for small chunks of data. The API also tries to be easy to use but it's more optimized for speed than usability.
