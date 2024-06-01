@@ -134,7 +134,7 @@ impl REncrypt {
 
     pub fn encrypt_into1<'py>(&self, plaintext: &Bound<'py, PyByteArray>, ciphertext: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
         let data = unsafe { ciphertext.as_bytes_mut() };
-        unsafe { copy_slice(plaintext.as_bytes_mut(), data); }
+        unsafe { copy_slice(plaintext.as_bytes(), data); }
         let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(data, plaintext.len(), self.get_tag_len(), self.get_nonce_len());
         encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
         Ok(plaintext.len() + self.overhead())
@@ -142,94 +142,94 @@ impl REncrypt {
 
     pub fn encrypt_from1<'py>(&mut self, plaintext: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8], py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         let mut data = vec![0; plaintext.len() + self.overhead()];
-        unsafe { copy_slice(plaintext.as_bytes_mut(), &mut data); }
+        unsafe { copy_slice(plaintext.as_bytes(), &mut data); }
         let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(&mut data, plaintext.len(), self.get_tag_len(), self.get_nonce_len());
         encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
         Ok(PyBytes::new_bound(py, data.as_slice()))
     }
 
-    #[cfg(target_os = "linux")]
-    pub fn encrypt_file(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
-        // if File::open(src).unwrap().metadata().unwrap().len() < 128 * 1024 * 1024 {
-        self.encrypt_file_uring_seq(src, dst, aad)
-        // } else {
-        //     self.encrypt_file_uring_par(src, dst, aad)
-        // }
-    }
-
-    fn encrypt_file_uring_seq(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
-        tokio_uring::start(async {
-            let tag_len = self.get_tag_len();
-            let nonce_len = self.get_nonce_len();
-            let mut block_index = 0_u64;
-            let overhead = self.overhead();
-
-            // Open the source file for reading
-            let src_file = tokio_uring::fs::File::open(src).await.unwrap();
-
-            // Open or create the destination file for writing
-            let dst_file = tokio_uring::fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(dst).await.unwrap();
-
-            let mut buf = vec![0u8; FILE_BLOCK_LEN];
-            let mut offset_read = 0;
-            let mut offset_write = 0;
-            let mut tag_out = vec![0u8; tag_len];
-            let mut nonce_out = vec![0u8; nonce_len];
-            loop {
-                let len = {
-                    // try to read a chunk from the source file
-                    let res = src_file.read_exact_at(buf, offset_read).await;
-                    if res.0.is_err() {
-                        // we're at the end of the file, read remaining
-                        let (len, read_buf) = src_file.read_at(res.1, offset_read).await;
-                        let len = len.unwrap();
-                        buf = read_buf;
-                        offset_read += len as u64;
-                        len
-                    } else {
-                        buf = res.1;
-                        offset_read += buf.len() as u64;
-                        buf.len()
-                    }
-                };
-                if len == 0 {
-                    break; // End of file reached
-                }
-
-                // encrypt
-                // encrypt(&mut buf, block_index, &aad, self.sealing_key.clone(), self.nonce_sequence.clone(), &mut tag_out, &mut nonce_out);
-
-                // Write the chunk to the destination file
-                // todo: try to do it without clone
-                // let res = dst_file.write_all_at(buf, offset_write).await;
-                // res.0.unwrap();
-                // buf = res.1;
-                offset_write += len as u64 + overhead as u64;
-                // let res = dst_file.write_all_at(tag_out, offset_write).await;
-                // res.0.unwrap();
-                // tag_out = res.1;
-                // offset_write += tag_len as u64;
-                // let res = dst_file.write_all_at(nonce_out, offset_write).await;
-                // res.0.unwrap();
-                // nonce_out = res.1;
-                // offset_write += nonce_len as u64;
-
-                if len < buf.len() {
-                    // eof
-                    break;
-                }
-
-                block_index += 1;
-            }
-            dst_file.sync_all().await.unwrap();
-            File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
-        });
-
-        Ok(())
-    }
+    // #[cfg(target_os = "linux")]
+    // pub fn encrypt_file(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
+    //     // if File::open(src).unwrap().metadata().unwrap().len() < 128 * 1024 * 1024 {
+    //     // self.encrypt_file_uring_seq(src, dst, aad)
+    //     // } else {
+    //     //     self.encrypt_file_uring_par(src, dst, aad)
+    //     // }
+    // }
+    //
+    // fn encrypt_file_uring_seq(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
+    //     tokio_uring::start(async {
+    //         let tag_len = self.get_tag_len();
+    //         let nonce_len = self.get_nonce_len();
+    //         let mut block_index = 0_u64;
+    //         let overhead = self.overhead();
+    //
+    //         // Open the source file for reading
+    //         let src_file = tokio_uring::fs::File::open(src).await.unwrap();
+    //
+    //         // Open or create the destination file for writing
+    //         let dst_file = tokio_uring::fs::OpenOptions::new()
+    //             .write(true)
+    //             .create(true)
+    //             .open(dst).await.unwrap();
+    //
+    //         let mut buf = vec![0u8; FILE_BLOCK_LEN];
+    //         let mut offset_read = 0;
+    //         let mut offset_write = 0;
+    //         let mut tag_out = vec![0u8; tag_len];
+    //         let mut nonce_out = vec![0u8; nonce_len];
+    //         loop {
+    //             let len = {
+    //                 // try to read a chunk from the source file
+    //                 let res = src_file.read_exact_at(buf, offset_read).await;
+    //                 if res.0.is_err() {
+    //                     // we're at the end of the file, read remaining
+    //                     let (len, read_buf) = src_file.read_at(res.1, offset_read).await;
+    //                     let len = len.unwrap();
+    //                     buf = read_buf;
+    //                     offset_read += len as u64;
+    //                     len
+    //                 } else {
+    //                     buf = res.1;
+    //                     offset_read += buf.len() as u64;
+    //                     buf.len()
+    //                 }
+    //             };
+    //             if len == 0 {
+    //                 break; // End of file reached
+    //             }
+    //
+    //             // encrypt
+    //             // encrypt(&mut buf, block_index, &aad, self.sealing_key.clone(), self.nonce_sequence.clone(), &mut tag_out, &mut nonce_out);
+    //
+    //             // Write the chunk to the destination file
+    //             // todo: try to do it without clone
+    //             // let res = dst_file.write_all_at(buf, offset_write).await;
+    //             // res.0.unwrap();
+    //             // buf = res.1;
+    //             offset_write += len as u64 + overhead as u64;
+    //             // let res = dst_file.write_all_at(tag_out, offset_write).await;
+    //             // res.0.unwrap();
+    //             // tag_out = res.1;
+    //             // offset_write += tag_len as u64;
+    //             // let res = dst_file.write_all_at(nonce_out, offset_write).await;
+    //             // res.0.unwrap();
+    //             // nonce_out = res.1;
+    //             // offset_write += nonce_len as u64;
+    //
+    //             if len < buf.len() {
+    //                 // eof
+    //                 break;
+    //             }
+    //
+    //             block_index += 1;
+    //         }
+    //         dst_file.sync_all().await.unwrap();
+    //         File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
+    //     });
+    //
+    //     Ok(())
+    // }
 
     // fn encrypt_file_uring_par(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
     //     let tag_len = self.get_tag_len();
@@ -348,9 +348,25 @@ impl REncrypt {
         Ok(plaintext.len())
     }
 
+    pub fn decrypt_into1<'py>(&self, ciphertext_and_tag_and_nonce: &Bound<'py, PyByteArray>, plaintext: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let data = unsafe { plaintext.as_bytes_mut() };
+        unsafe { copy_slice(ciphertext_and_tag_and_nonce.as_bytes(), data); }
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(data, ciphertext_and_tag_and_nonce.len(), self.get_nonce_len());
+        let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
+        Ok(plaintext.len())
+    }
+
     pub fn decrypt_from<'py>(&self, py: Python<'py>, ciphertext_and_tag_and_nonce: &[u8], block_index: u64, aad: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
         let mut data = vec![0_u8; ciphertext_and_tag_and_nonce.len()];
         copy_slice(ciphertext_and_tag_and_nonce, &mut data);
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(&mut data, ciphertext_and_tag_and_nonce.len(), self.get_nonce_len());
+        let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
+        Ok(PyBytes::new_bound(py, &plaintext))
+    }
+
+    pub fn decrypt_from1<'py>(&self, py: Python<'py>, ciphertext_and_tag_and_nonce: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+        let mut data = vec![0_u8; ciphertext_and_tag_and_nonce.len()];
+        unsafe { copy_slice(ciphertext_and_tag_and_nonce.as_bytes(), &mut data); }
         let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(&mut data, ciphertext_and_tag_and_nonce.len(), self.get_nonce_len());
         let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
         Ok(PyBytes::new_bound(py, &plaintext))
