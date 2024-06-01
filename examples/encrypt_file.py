@@ -1,3 +1,4 @@
+import ctypes
 import errno
 import io
 import os
@@ -5,6 +6,10 @@ from pathlib import Path
 import shutil
 from rencrypt import REncrypt, Cipher
 import hashlib
+
+
+def zeroize(data):
+    ctypes.memset(ctypes.c_void_p(id(data)), 0, len(data))
 
 
 def read_file_in_chunks(file_path, buf):
@@ -106,5 +111,8 @@ with open(tmp, "wb", buffering=plaintext_len) as file_out:
 compare_files_by_hash(fin, tmp)
 
 delete_dir(tmp_dir)
+# best practice, you should always zeroize the plaintext and key after you are done with them
+zeroize(key)
+zeroize(buf)
 
 print("bye!")

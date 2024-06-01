@@ -361,6 +361,7 @@ print("decryping...")
 plaintext_len = enc.decrypt(buf, ciphertext_len, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
+# best practice, you should always zeroize the plaintext and key after you are done with them
 print("bye!")
 ```
 
@@ -477,6 +478,7 @@ with open(tmp, "wb", buffering=plaintext_len) as file_out:
 compare_files_by_hash(fin, tmp)
 
 delete_dir(tmp_dir)
+# best practice, you should always zeroize the plaintext and key after you are done with them
 
 print("bye!")
 ```
@@ -513,6 +515,7 @@ print("decryping...")
 plaintext_len = enc.decrypt_into(cipertext, buf, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
+# best practice, you should always zeroize the plaintext and key after you are done with them
 print("bye!")
 ```
 
@@ -546,6 +549,7 @@ ciphertext = enc.encrypt_from(plaintext, 42, aad)
 print("decryping...")
 plaintext2 = enc.decrypt_from(ciphertext, 42, aad)
 assert plaintext == plaintext2
+# best practice, you should always zeroize the plaintext and key after you are done with them
 print("bye!")
 ```
 
