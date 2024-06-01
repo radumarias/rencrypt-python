@@ -7,9 +7,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyByteArray, PyBytes};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
-use rayon::iter::IndexedParallelIterator;
-use rayon::iter::ParallelIterator;
-use rayon::prelude::{IntoParallelRefIterator, ParallelSlice, ParallelSliceMut};
+// use rayon::iter::IndexedParallelIterator;
+// use rayon::iter::ParallelIterator;
+// use rayon::prelude::{IntoParallelRefIterator, ParallelSlice, ParallelSliceMut};
 use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey};
 use ring::error::Unspecified;
 use zeroize::Zeroize;
@@ -372,63 +372,63 @@ impl REncrypt {
         Ok(PyBytes::new_bound(py, &plaintext))
     }
 
-    pub fn decrypt_file(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
-        let nonce_len = self.get_nonce_len();
-        let provider = self.provider;
-        let cipher = self.cipher;
-        let key = &self.key;
-
-        let overhead = self.overhead();
-        let block_len = FILE_BLOCK_LEN + overhead;
-
-        let fin = File::open(src).unwrap();
-        let ciphertext_file_size = fin.metadata().unwrap().len();
-        let plaintext_file_size = ciphertext_file_size - (ciphertext_file_size / block_len as u64 + 1) * self.overhead() as u64;
-
-        {
-            // create out file with preallocated size
-            let fout = File::create(dst).unwrap();
-            fout.set_len(plaintext_file_size).unwrap();
-            fout.sync_all().unwrap();
-            File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
-        }
-
-        let chunks: Vec<(u64, usize)> = (0..ciphertext_file_size)
-            .step_by(block_len)
-            .map(|offset| {
-                let end = std::cmp::min(offset + block_len as u64, ciphertext_file_size);
-                (offset, (end - offset) as usize)
-            })
-            .collect();
-        chunks.par_iter().for_each(|&(offset, length)| {
-            // read
-            let mut buf = vec![0u8; length];
-            let mut src_file = BufReader::new(File::open(src).expect("Unable to open source file"));
-            src_file.seek(SeekFrom::Start(offset)).expect("Unable to seek in source file");
-            src_file.read_exact(&mut buf).expect("Unable to read chunk from source file");
-
-            // decrypt
-            let (opening_key, last_nonce) = create_opening_key(provider, cipher, &key);
-            let block_index = offset / block_len as u64;
-            let (ciphertext_and_tag, nonce) = buf.split_at_mut(length - nonce_len);
-            decrypt(ciphertext_and_tag, block_index, &aad, Arc::new(Mutex::new(opening_key)), last_nonce.clone(), nonce);
-
-            // write
-            let mut dst_file = BufWriter::new(OpenOptions::new().write(true).open(dst).expect("Unable to open destination file"));
-            dst_file.seek(SeekFrom::Start(offset - block_index * overhead as u64)).expect("Unable to seek in destination file");
-            dst_file.write_all(&buf[..length - overhead]).expect("Unable to write chunk to destination file");
-            dst_file.flush().expect("Unable to flush destination file");
-            dst_file.into_inner().unwrap().sync_all().expect("Unable to sync destination file");
-
-            buf.zeroize();
-        });
-
-        let fout = File::open(dst).unwrap();
-        fout.sync_all().unwrap();
-        File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
-
-        Ok(())
-    }
+    // pub fn decrypt_file(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
+    //     let nonce_len = self.get_nonce_len();
+    //     let provider = self.provider;
+    //     let cipher = self.cipher;
+    //     let key = &self.key;
+    //
+    //     let overhead = self.overhead();
+    //     let block_len = FILE_BLOCK_LEN + overhead;
+    //
+    //     let fin = File::open(src).unwrap();
+    //     let ciphertext_file_size = fin.metadata().unwrap().len();
+    //     let plaintext_file_size = ciphertext_file_size - (ciphertext_file_size / block_len as u64 + 1) * self.overhead() as u64;
+    //
+    //     {
+    //         // create out file with preallocated size
+    //         let fout = File::create(dst).unwrap();
+    //         fout.set_len(plaintext_file_size).unwrap();
+    //         fout.sync_all().unwrap();
+    //         File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
+    //     }
+    //
+    //     let chunks: Vec<(u64, usize)> = (0..ciphertext_file_size)
+    //         .step_by(block_len)
+    //         .map(|offset| {
+    //             let end = std::cmp::min(offset + block_len as u64, ciphertext_file_size);
+    //             (offset, (end - offset) as usize)
+    //         })
+    //         .collect();
+    //     chunks.par_iter().for_each(|&(offset, length)| {
+    //         // read
+    //         let mut buf = vec![0u8; length];
+    //         let mut src_file = BufReader::new(File::open(src).expect("Unable to open source file"));
+    //         src_file.seek(SeekFrom::Start(offset)).expect("Unable to seek in source file");
+    //         src_file.read_exact(&mut buf).expect("Unable to read chunk from source file");
+    //
+    //         // decrypt
+    //         let (opening_key, last_nonce) = create_opening_key(provider, cipher, &key);
+    //         let block_index = offset / block_len as u64;
+    //         let (ciphertext_and_tag, nonce) = buf.split_at_mut(length - nonce_len);
+    //         decrypt(ciphertext_and_tag, block_index, &aad, Arc::new(Mutex::new(opening_key)), last_nonce.clone(), nonce);
+    //
+    //         // write
+    //         let mut dst_file = BufWriter::new(OpenOptions::new().write(true).open(dst).expect("Unable to open destination file"));
+    //         dst_file.seek(SeekFrom::Start(offset - block_index * overhead as u64)).expect("Unable to seek in destination file");
+    //         dst_file.write_all(&buf[..length - overhead]).expect("Unable to write chunk to destination file");
+    //         dst_file.flush().expect("Unable to flush destination file");
+    //         dst_file.into_inner().unwrap().sync_all().expect("Unable to sync destination file");
+    //
+    //         buf.zeroize();
+    //     });
+    //
+    //     let fout = File::open(dst).unwrap();
+    //     fout.sync_all().unwrap();
+    //     File::open(Path::new(dst).to_path_buf().parent().expect("oops, we don't have parent")).unwrap().sync_all().unwrap();
+    //
+    //     Ok(())
+    // }
 
     #[staticmethod]
     pub fn copy_slice<'py>(src: &[u8], buf: &Bound<'py, PyByteArray>) -> PyResult<()> {
@@ -507,11 +507,11 @@ fn copy_slice_internal(dst: &mut [u8], src: &[u8]) {
     dst.copy_from_slice(&src);
 }
 
-fn copy_slice_concurrently(dst: &mut [u8], src: &[u8], chunk_size: usize) {
-    dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
-        dst_chunk.copy_from_slice(src_chunk);
-    });
-}
+// fn copy_slice_concurrently(dst: &mut [u8], src: &[u8], chunk_size: usize) {
+//     dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
+//         dst_chunk.copy_from_slice(src_chunk);
+//     });
+// }
 
 fn get_ring_algorithm(cipher: Cipher) -> &'static ring::aead::Algorithm {
     match cipher {
@@ -555,12 +555,12 @@ fn decrypt<'a>(ciphertext_and_tag: &'a mut [u8], block_index: u64, aad: &[u8], o
 }
 
 fn copy_slice(src: &[u8], dst: &mut [u8]) {
-    if src.len() < 1024 * 1024 {
+    // if src.len() < 1024 * 1024 {
         let src_len = src.len();
         copy_slice_internal(&mut dst[..src_len], src);
-    } else {
-        copy_slice_concurrently(&mut dst[..src.len()], src, 16 * 1024);
-    }
+    // } else {
+    //     copy_slice_concurrently(&mut dst[..src.len()], src, 16 * 1024);
+    // }
 }
 
 fn create_sealing_key(provider: Provider, cipher: Cipher, key: &Vec<u8>) -> (SealingKey<RandomNonceSequenceWrapper>, Arc<Mutex<RandomNonceSequence>>) {
@@ -644,35 +644,35 @@ impl NonceSequence for ExistingNonceSequence {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_copy_slice_concurrently() {
-        let src = b"hello";
-        let mut dst = vec![0_u8; src.len()];
-        copy_slice_concurrently(&mut dst, src, 16 * 1024);
-        assert_eq!(dst, src);
+    // #[test]
+    // fn test_copy_slice_concurrently() {
+    //     let src = b"hello";
+    //     let mut dst = vec![0_u8; src.len()];
+    //     copy_slice_concurrently(&mut dst, src, 16 * 1024);
+    //     assert_eq!(dst, src);
+    //
+    //     let mut src = [0_u8; 1024 * 1024];
+    //     create_rng().fill_bytes(&mut src);
+    //     let mut dst = vec![0_u8; src.len()];
+    //     copy_slice_concurrently(&mut dst, &src, 16 * 1024);
+    //     assert_eq!(dst, src);
+    // }
 
-        let mut src = [0_u8; 1024 * 1024];
-        create_rng().fill_bytes(&mut src);
-        let mut dst = vec![0_u8; src.len()];
-        copy_slice_concurrently(&mut dst, &src, 16 * 1024);
-        assert_eq!(dst, src);
-    }
-
-    #[test]
-    fn test_par_chunks_mut() {
-        let chunk_size = 512 * 1024;
-        let mut src = [0_u8; 1024 * 1024];
-        create_rng().fill_bytes(&mut src);
-        let mut dst = vec![0_u8; src.len()];
-
-        assert_eq!(src.len() % chunk_size, 0, "Array size must be a multiple of chunk size");
-
-        dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
-            dst_chunk.copy_from_slice(src_chunk);
-        });
-
-        assert_eq!(dst, src);
-    }
+    // #[test]
+    // fn test_par_chunks_mut() {
+    //     let chunk_size = 512 * 1024;
+    //     let mut src = [0_u8; 1024 * 1024];
+    //     create_rng().fill_bytes(&mut src);
+    //     let mut dst = vec![0_u8; src.len()];
+    //
+    //     assert_eq!(src.len() % chunk_size, 0, "Array size must be a multiple of chunk size");
+    //
+    //     dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
+    //         dst_chunk.copy_from_slice(src_chunk);
+    //     });
+    //
+    //     assert_eq!(dst, src);
+    // }
 
     #[test]
     fn test_copy_slice_internal() {
