@@ -9,7 +9,7 @@ So if you want to achieve the highest possible encryption speed, consider giving
 
 # Benchmark
 
-Some benchmarks comparing to [PyFLocker](https://github.com/arunanshub/pyflocker), which, from other implementations, I found to be the fastest.
+Some benchmarks comparing it to [PyFLocker](https://github.com/arunanshub/pyflocker) which from my benchmarks is the fastest among other Python libs like `cryptography`, `NaCl` (`libsodium`), `PyCryptodome`
 
 ## Buffer in memory
 
