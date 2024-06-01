@@ -28,14 +28,14 @@ jobs:
             target: x86_64
           - runner: ubuntu-latest
             target: x86
-          # - runner: ubuntu-latest
-          #   target: aarch64
-          - runner: ubuntu-latest
-            target: armv7
-          # - runner: ubuntu-latest
-          #   target: s390x
-          # - runner: ubuntu-latest
-          #   target: ppc64le
+          #- runner: ubuntu-latest
+          #  target: aarch64
+          #- runner: ubuntu-latest
+          #  target: armv7
+          #- runner: ubuntu-latest
+          #  target: s390x
+          #- runner: ubuntu-latest
+          #  target: ppc64le
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -121,22 +121,18 @@ jobs:
         with:
           name: wheels-sdist
           path: dist
+
   release:
     name: Release
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
     needs: [linux, windows, macos, sdist]
     steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: wheels
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
+      - uses: actions/download-artifact@v4
       - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
         env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: |
-          pip install --upgrade twine
-          twine upload --skip-existing *
+          MATURIN_PYPI_TOKEN: ${{ secrets.MATURIN_PYPI_TOKEN }}
+        with:
+          command: upload
+          args: --non-interactive --skip-existing wheels-*/*
