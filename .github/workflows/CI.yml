@@ -28,14 +28,14 @@ jobs:
             target: x86_64
           - runner: ubuntu-latest
             target: x86
-          #- runner: ubuntu-latest
-          #  target: aarch64
-          #- runner: ubuntu-latest
-          #  target: armv7
-          #- runner: ubuntu-latest
-          #  target: s390x
-          #- runner: ubuntu-latest
-          #  target: ppc64le
+          - runner: ubuntu-latest
+            target: aarch64
+          - runner: ubuntu-latest
+            target: armv7
+          - runner: ubuntu-latest
+            target: s390x
+          - runner: ubuntu-latest
+            target: ppc64le
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -125,27 +125,14 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    permissions:
-      # IMPORTANT: this permission is mandatory for trusted publishing
-      id-token: write
-      contents: read
     if: "startsWith(github.ref, 'refs/tags/')"
     needs: [linux, windows, macos, sdist]
     steps:
       - uses: actions/download-artifact@v4
-      - name: Setup pcredentials
-        run: |
-          echo $MATURIN_PYPI_TOKEN
-          echo "[pypi]
-                username = __token__
-                password = $MATURIN_PYPI_TOKEN" > $HOME/.pypirc
-                cat $HOME/.pypirc
-        env:
-          MATURIN_PYPI_TOKEN: ${{ secrets.MATURIN_PYPI_TOKEN }}                
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         env:
-          MATURIN_PYPI_TOKEN: ${{ secrets.MATURIN_PYPI_TOKEN }}
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         with:
           command: upload
           args: --non-interactive --skip-existing wheels-*/*
