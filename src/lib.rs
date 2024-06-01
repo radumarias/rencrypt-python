@@ -1,15 +1,13 @@
-use std::fs::{File, OpenOptions};
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::io::{Read, Seek, Write};
 use std::sync::{Arc, Mutex};
 
 use pyo3::prelude::*;
 use pyo3::types::{PyByteArray, PyBytes};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
-// use rayon::iter::IndexedParallelIterator;
-// use rayon::iter::ParallelIterator;
-// use rayon::prelude::{IntoParallelRefIterator, ParallelSlice, ParallelSliceMut};
+use rayon::iter::IndexedParallelIterator;
+use rayon::iter::ParallelIterator;
+use rayon::prelude::{ParallelSlice, ParallelSliceMut};
 use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey};
 use ring::error::Unspecified;
 use zeroize::Zeroize;
@@ -507,11 +505,11 @@ fn copy_slice_internal(dst: &mut [u8], src: &[u8]) {
     dst.copy_from_slice(&src);
 }
 
-// fn copy_slice_concurrently(dst: &mut [u8], src: &[u8], chunk_size: usize) {
-//     dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
-//         dst_chunk.copy_from_slice(src_chunk);
-//     });
-// }
+fn copy_slice_concurrently(dst: &mut [u8], src: &[u8], chunk_size: usize) {
+    dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
+        dst_chunk.copy_from_slice(src_chunk);
+    });
+}
 
 fn get_ring_algorithm(cipher: Cipher) -> &'static ring::aead::Algorithm {
     match cipher {
@@ -555,12 +553,12 @@ fn decrypt<'a>(ciphertext_and_tag: &'a mut [u8], block_index: u64, aad: &[u8], o
 }
 
 fn copy_slice(src: &[u8], dst: &mut [u8]) {
-    // if src.len() < 1024 * 1024 {
+    if src.len() < 1024 * 1024 {
         let src_len = src.len();
         copy_slice_internal(&mut dst[..src_len], src);
-    // } else {
-    //     copy_slice_concurrently(&mut dst[..src.len()], src, 16 * 1024);
-    // }
+    } else {
+        copy_slice_concurrently(&mut dst[..src.len()], src, 16 * 1024);
+    }
 }
 
 fn create_sealing_key(provider: Provider, cipher: Cipher, key: &Vec<u8>) -> (SealingKey<RandomNonceSequenceWrapper>, Arc<Mutex<RandomNonceSequence>>) {
@@ -644,35 +642,35 @@ impl NonceSequence for ExistingNonceSequence {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn test_copy_slice_concurrently() {
-    //     let src = b"hello";
-    //     let mut dst = vec![0_u8; src.len()];
-    //     copy_slice_concurrently(&mut dst, src, 16 * 1024);
-    //     assert_eq!(dst, src);
-    //
-    //     let mut src = [0_u8; 1024 * 1024];
-    //     create_rng().fill_bytes(&mut src);
-    //     let mut dst = vec![0_u8; src.len()];
-    //     copy_slice_concurrently(&mut dst, &src, 16 * 1024);
-    //     assert_eq!(dst, src);
-    // }
+    #[test]
+    fn test_copy_slice_concurrently() {
+        let src = b"hello";
+        let mut dst = vec![0_u8; src.len()];
+        copy_slice_concurrently(&mut dst, src, 16 * 1024);
+        assert_eq!(dst, src);
 
-    // #[test]
-    // fn test_par_chunks_mut() {
-    //     let chunk_size = 512 * 1024;
-    //     let mut src = [0_u8; 1024 * 1024];
-    //     create_rng().fill_bytes(&mut src);
-    //     let mut dst = vec![0_u8; src.len()];
-    //
-    //     assert_eq!(src.len() % chunk_size, 0, "Array size must be a multiple of chunk size");
-    //
-    //     dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
-    //         dst_chunk.copy_from_slice(src_chunk);
-    //     });
-    //
-    //     assert_eq!(dst, src);
-    // }
+        let mut src = [0_u8; 1024 * 1024];
+        create_rng().fill_bytes(&mut src);
+        let mut dst = vec![0_u8; src.len()];
+        copy_slice_concurrently(&mut dst, &src, 16 * 1024);
+        assert_eq!(dst, src);
+    }
+
+    #[test]
+    fn test_par_chunks_mut() {
+        let chunk_size = 512 * 1024;
+        let mut src = [0_u8; 1024 * 1024];
+        create_rng().fill_bytes(&mut src);
+        let mut dst = vec![0_u8; src.len()];
+
+        assert_eq!(src.len() % chunk_size, 0, "Array size must be a multiple of chunk size");
+
+        dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
+            dst_chunk.copy_from_slice(src_chunk);
+        });
+
+        assert_eq!(dst, src);
+    }
 
     #[test]
     fn test_copy_slice_internal() {

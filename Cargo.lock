@@ -602,6 +602,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rand_core",
+ "rayon",
  "ring",
  "zeroize",
 ]
