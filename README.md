@@ -569,6 +569,7 @@ For `encrypt_from1()`/`decrypt_from1()` the only difference is that the input is
 [![Open in Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/?repo=radumarias%2Frencrypt-python&ref=main)
 
 ## Geting sources from GitHub
+Skip this if you're starting it in browser.
 
 ```bash
 git clone https://github.com/radumarias/rencrypt-python && cd rencrypt-python
