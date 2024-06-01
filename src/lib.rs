@@ -1,3 +1,5 @@
+mod encryptor;
+
 use std::io::{Read, Seek, Write};
 use std::sync::{Arc, Mutex};
 
