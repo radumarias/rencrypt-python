@@ -485,7 +485,7 @@ print("bye!")
 
 This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some `bytes` from somewhere else.
 
-For `encrypt_into`/`encrypt_into` the plaintext is `bytes`.
+For `encrypt_into()`/`decrypt_into()` the plaintext is `bytes`.
 
 ```python
 from rencrypt import REncrypt, Cipher
@@ -516,14 +516,14 @@ assert plaintext == plaintext2
 print("bye!")
 ```
 
-For `encrypt_into1()`/`encrypt_into1()` the only difference is that the plaintext is `bytearray`.
+For `encrypt_into1()`/`decrypt_into1()` the only difference is that the input is `bytearray`.
 
 
-## Encrypt and decrypt from some bytes to another new bytes, without using the buffer  `encrypt_from()`/`decrypt_from()` or `encrypt_from2()`/`decrypt_from2()`
+## Encrypt and decrypt from some bytes to another new bytes, without using the buffer  `encrypt_from()`/`decrypt_from()` or `encrypt_from1()`/`decrypt_from1()`
 
 This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
 
-For `encrypt_from`/`decrypt_from` the plaintext is `bytes`.
+For `encrypt_from()`/`decrypt_from()` the plaintext is `bytes`.
 
 ```python
 from rencrypt import REncrypt, Cipher
@@ -549,7 +549,7 @@ assert plaintext == plaintext2
 print("bye!")
 ```
 
-For `encrypt_from2()`/`decrypt_from2()` the only difference is that the plaintext is `bytearray`.
+For `encrypt_from1()`/`decrypt_from1()` the only difference is that the input is `bytearray`.
 
 # Building from source
 
