@@ -550,7 +550,7 @@ python -m venv .env
 source .env/bin/activate
 pip install maturin
 maturin develop
-python python bench.py
+python bench.py
 ```
 
 # More benchmarks
