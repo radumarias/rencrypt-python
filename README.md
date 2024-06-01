@@ -372,6 +372,8 @@ You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 import errno
 import io
 import os
+from pathlib import Path
+import shutil
 from rencrypt import REncrypt, Cipher
 import hashlib
 
@@ -406,10 +408,41 @@ def silentremove(filename):
             raise  # re-raise exception if a different error occurred
 
 
-path_in = "/tmp/fin"
-path_out = "/tmp/fout.enc"
+def create_directory_in_home(dir_name):
+    # Get the user's home directory
+    home_dir = Path.home()
 
-chunk_len = 128 * 1024
+    # Create the full path for the new directory
+    new_dir_path = home_dir / dir_name
+
+    # Create the directory
+    try:
+        new_dir_path.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"Error creating directory: {e}")
+
+    return new_dir_path.absolute().__str__()
+
+
+def create_file_with_size(file_path_str, size_in_bytes):
+    with open(file_path_str, "wb") as f:
+        for _ in range(size_in_bytes // 4096):
+            f.write(os.urandom(4096))
+
+
+def delete_dir(path):
+    if os.path.exists(path):
+        shutil.rmtree(path)
+    else:
+        print(f"Directory {path} does not exist.")
+
+
+tmp_dir = create_directory_in_home("rencrypt_tmp")
+fin = tmp_dir + "/" + "fin"
+fout = tmp_dir + "/" + "fout.enc"
+create_file_with_size(fin, 42 * 1024 * 1024)
+
+chunk_len = 256 * 1024
 
 key = os.urandom(32)
 
@@ -422,10 +455,9 @@ aad = b"AAD"
 
 # encrypt
 print("encryping...")
-silentremove(path_out)
-with open(path_out, "wb", buffering=plaintext_len) as file_out:
+with open(fout, "wb", buffering=plaintext_len) as file_out:
     i = 0
-    for read in read_file_in_chunks(path_in, buf[:plaintext_len]):
+    for read in read_file_in_chunks(fin, buf[:plaintext_len]):
         ciphertext_len = enc.encrypt(buf, read, i, aad)
         file_out.write(buf[:ciphertext_len])
         i += 1
@@ -433,19 +465,18 @@ with open(path_out, "wb", buffering=plaintext_len) as file_out:
 
 # decrypt
 print("decryping...")
-tmp_path = "/tmp/fout.dec"
-with open(tmp_path, "wb", buffering=plaintext_len) as file_out:
+tmp = fout + ".dec"
+with open(tmp, "wb", buffering=plaintext_len) as file_out:
     i = 0
-    for read in read_file_in_chunks(path_out, buf):
+    for read in read_file_in_chunks(fout, buf):
         plaintext_len2 = enc.decrypt(buf, read, i, aad)
         file_out.write(buf[:plaintext_len2])
         i += 1
     file_out.flush()
 
-compare_files_by_hash(path_in, tmp_path)
+compare_files_by_hash(fin, tmp)
 
-silentremove(tmp_path)
-silentremove(path_out)
+delete_dir(tmp_dir)
 
 print("bye!")
 ```
