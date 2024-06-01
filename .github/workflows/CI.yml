@@ -28,10 +28,10 @@ jobs:
             target: x86_64
           - runner: ubuntu-latest
             target: x86
-          # - runner: ubuntu-latest
-          #   target: aarch64
-          # - runner: ubuntu-latest
-          #   target: armv7
+          - runner: ubuntu-latest
+            target: aarch64
+          - runner: ubuntu-latest
+            target: armv7
           # - runner: ubuntu-latest
           #   target: s390x
           # - runner: ubuntu-latest
@@ -157,10 +157,14 @@ jobs:
       #     }
       #     jwtd $IDTOKEN
       #     echo "idToken=${IDTOKEN}" >> $GITHUB_OUTPUT
+      # - name: Publish to PyPI
+      #   uses: PyO3/maturin-action@v1
+      #   env:
+      #     MATURIN_PYPI_TOKEN: ${{ secrets.MATURIN_PYPI_TOKEN }}
+      #   with:
+      #     command: upload
+      #     args: --non-interactive --skip-existing wheels-*/*
       - name: Publish to PyPI
-        uses: PyO3/maturin-action@v1
-        env:
-          MATURIN_PYPI_TOKEN: ${{ secrets.MATURIN_PYPI_TOKEN }}
-        with:
-          command: upload
-          args: --non-interactive --skip-existing wheels-*/*
+        run: |
+          cat ${{ secrets.MATURIN_PYPI_TOKEN }} >> $HOME/.pypirc
+          maturin publish
