@@ -555,7 +555,7 @@ decrypt_from(64 * 1024 * 1024)
 decrypt_from(128 * 1024 * 1024)
 decrypt_from(256 * 1024 * 1024)
 decrypt_from(512 * 1024 * 1024)
-decrypt_from(1024 * 1024 * 1024)
+# decrypt_from(1024 * 1024 * 1024)
 
 print("\n decrypt_file")
 print("| MB | Seconds |")
