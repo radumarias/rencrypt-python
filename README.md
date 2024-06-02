@@ -318,7 +318,9 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 There are three ways in which you can use the lib, the main difference is the speed, some offers an easier way to use it sacrificing performance.
 
-1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory. If you can directly collect the data to that buffer, like `buffered_reader.read_into()`, **this is the preffered way to go**.
+1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
+**The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slices that reference to underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len + tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
+If you can directly collect the data to that buffer, like `BufferedReader.read_into()`, **this is the preffered way to go**.
 2. **From some bytes into the buffer**: using `encrypt_into()`/`decrypt_into()`, when you have some arbitrary `bytes` that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in buffer. This is a bit slower, especially for large data, because it needs to copy the bytes to the buffer.
 3. **From some bytes to another new bytes**: using `encrypt_from()`/`decrypt_from()`, it doesn't use the buffer at all, you just got some bytes you want to work with and you receive back another new bytes. This is the slowest one because it needs to first allocate a buffer, copy the data to the buffer, perform the operation then return that buffer as bytes. It's the easiest to use but is not so performant.
 
@@ -333,9 +335,9 @@ You can see more in [examples](https://github.com/radumarias/rencrypt-python/tre
 This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
 ```python
-import ctypes
 from rencrypt import REncrypt, Cipher
 import os
+from zeroize import zeroize1
 
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
@@ -370,9 +372,9 @@ plaintext_len = enc.decrypt(buf, ciphertext_len, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
 
-# best practice, you should always zeroize the plaintext after you are done with it
-enc.zeroize(plaintext)
-enc.zeroize(plaintext2)
+# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+zeroize1(plaintext)
+zeroize1(plaintext2)
 
 print("bye!")
 ```
@@ -382,7 +384,6 @@ You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 ## Encrypt and decrypt a file
 
 ```python
-import ctypes
 import errno
 import io
 import os
@@ -390,6 +391,8 @@ from pathlib import Path
 import shutil
 from rencrypt import REncrypt, Cipher
 import hashlib
+from zeroize import zeroize_np
+import numpy as np
 
 
 def read_file_in_chunks(file_path, buf):
@@ -402,16 +405,21 @@ def read_file_in_chunks(file_path, buf):
             yield read
 
 
-def calculate_file_hash(file_path):
+def hash_file(file_path):
     hash_algo = hashlib.sha256()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_algo.update(chunk)
     return hash_algo.hexdigest()
 
+def hash(bytes_in):
+    hash_algo = hashlib.sha256()
+    hash_algo.update(bytes_in)
+    return hash_algo.hexdigest()
+
 
 def compare_files_by_hash(file1, file2):
-    return calculate_file_hash(file1) == calculate_file_hash(file2)
+    return hash_file(file1) == hash_file(file2)
 
 
 def silentremove(filename):
@@ -440,8 +448,9 @@ def create_directory_in_home(dir_name):
 
 def create_file_with_size(file_path_str, size_in_bytes):
     with open(file_path_str, "wb") as f:
-        for _ in range(size_in_bytes // 4096):
-            f.write(os.urandom(4096))
+        for _ in range((size_in_bytes // 4096) + 1):
+            f.write(os.urandom(min(4096, size_in_bytes)))
+        f.flush()
 
 
 def delete_dir(path):
@@ -454,7 +463,7 @@ def delete_dir(path):
 tmp_dir = create_directory_in_home("rencrypt_tmp")
 fin = tmp_dir + "/" + "fin"
 fout = tmp_dir + "/" + "fout.enc"
-create_file_with_size(fin, 42 * 1024 * 1024)
+create_file_with_size(fin, 10 * 1024 * 1024)
 
 chunk_len = 256 * 1024
 
@@ -463,15 +472,19 @@ key = cipher.generate_key()
 # The key is copied and the input key is zeroized for security reasons.
 # The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
-plaintext_len, _, buf = enc.create_buf(chunk_len)
+plaintext_len = chunk_len;
+ciphertext_len = enc.ciphertext_len(plaintext_len)
+buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
 aad = b"AAD"
 
 # encrypt
 print("encryping...")
+h1 = bytes(32)
 with open(fout, "wb", buffering=plaintext_len) as file_out:
     i = 0
     for read in read_file_in_chunks(fin, buf[:plaintext_len]):
+        h1 = hash(buf[:read])
         ciphertext_len = enc.encrypt(buf, read, i, aad)
         file_out.write(buf[:ciphertext_len])
         i += 1
@@ -480,19 +493,21 @@ with open(fout, "wb", buffering=plaintext_len) as file_out:
 # decrypt
 print("decryping...")
 tmp = fout + ".dec"
+h2 = bytes(32)
 with open(tmp, "wb", buffering=plaintext_len) as file_out:
     i = 0
     for read in read_file_in_chunks(fout, buf):
         plaintext_len2 = enc.decrypt(buf, read, i, aad)
+        h2 = hash(buf[:plaintext_len2])
         file_out.write(buf[:plaintext_len2])
         i += 1
     file_out.flush()
 
-compare_files_by_hash(fin, tmp)
+assert compare_files_by_hash(fin, tmp)
 
 delete_dir(tmp_dir)
-# best practice, you should always zeroize the plaintext and key after you are done with them
-enc.zeroize(buf)
+# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+zeroize_np(buf)
 
 print("bye!")
 ```
@@ -506,9 +521,12 @@ This is a bit slower than handling data only via the buffer, especially for larg
 For `encrypt_into()`/`decrypt_into()` the plaintext is `bytes`.
 
 ```python
-import ctypes
 from rencrypt import REncrypt, Cipher
 import os
+from zeroize import zeroize1
+from zeroize import zeroize_np
+import numpy as np
+
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 cipher = Cipher.AES256GCM
@@ -517,9 +535,12 @@ key = cipher.generate_key()
 # The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
 
-# we get a buffer based on block len 4096 plaintext
-# the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
-plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
+# we create a buffer based on plaintext block len of 4096
+# the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+plaintext_len = 4096
+ciphertext_len = enc.ciphertext_len(plaintext_len)
+buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+
 aad = b"AAD"
 
 plaintext = bytearray(os.urandom(plaintext_len))
@@ -535,9 +556,10 @@ plaintext_len = enc.decrypt_into(cipertext, buf, 42, aad)
 plaintext2 = buf[:plaintext_len]
 assert plaintext == plaintext2
 
-# best practice, you should always zeroize the plaintext after you are done with it
-enc.zeroize(plaintext)
-enc.zeroize(plaintext2)
+# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+zeroize1(plaintext)
+zeroize_np(plaintext2)
+zeroize_np(buf)
 
 print("bye!")
 ```
@@ -554,9 +576,10 @@ This is the slowest option, especially for large plaintext, because it allocates
 For `encrypt_from()`/`decrypt_from()` the plaintext is `bytes`.
 
 ```python
-import ctypes
 from rencrypt import REncrypt, Cipher
 import os
+from zeroize import zeroize1
+
 
 # You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
 cipher = Cipher.AES256GCM
@@ -578,9 +601,9 @@ print("decryping...")
 plaintext2 = enc.decrypt_from1(ciphertext, 42, aad)
 assert plaintext == plaintext2
 
-# best practice, you should always zeroize the plaintext after you are done with it
-enc.zeroize(plaintext)
-enc.zeroize(plaintext2)
+# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+zeroize1(plaintext)
+zeroize1(plaintext2)
 
 print("bye!")
 ```
@@ -617,6 +640,8 @@ This is usually done by running one of the following (note the leading DOT):
 python -m venv .env
 source .env/bin/activate
 pip install maturin
+pip install zeroize
+pip install numpy
 maturin develop
 python bench.py
 ```

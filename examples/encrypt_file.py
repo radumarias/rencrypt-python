@@ -1,4 +1,3 @@
-import ctypes
 import errno
 import io
 import os
@@ -6,6 +5,8 @@ from pathlib import Path
 import shutil
 from rencrypt import REncrypt, Cipher
 import hashlib
+from zeroize import zeroize_np
+import numpy as np
 
 
 def read_file_in_chunks(file_path, buf):
@@ -18,16 +19,21 @@ def read_file_in_chunks(file_path, buf):
             yield read
 
 
-def calculate_file_hash(file_path):
+def hash_file(file_path):
     hash_algo = hashlib.sha256()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_algo.update(chunk)
     return hash_algo.hexdigest()
 
+def hash(bytes_in):
+    hash_algo = hashlib.sha256()
+    hash_algo.update(bytes_in)
+    return hash_algo.hexdigest()
+
 
 def compare_files_by_hash(file1, file2):
-    return calculate_file_hash(file1) == calculate_file_hash(file2)
+    return hash_file(file1) == hash_file(file2)
 
 
 def silentremove(filename):
@@ -56,8 +62,9 @@ def create_directory_in_home(dir_name):
 
 def create_file_with_size(file_path_str, size_in_bytes):
     with open(file_path_str, "wb") as f:
-        for _ in range(size_in_bytes // 4096):
-            f.write(os.urandom(4096))
+        for _ in range((size_in_bytes // 4096) + 1):
+            f.write(os.urandom(min(4096, size_in_bytes)))
+        f.flush()
 
 
 def delete_dir(path):
@@ -70,7 +77,7 @@ def delete_dir(path):
 tmp_dir = create_directory_in_home("rencrypt_tmp")
 fin = tmp_dir + "/" + "fin"
 fout = tmp_dir + "/" + "fout.enc"
-create_file_with_size(fin, 42 * 1024 * 1024)
+create_file_with_size(fin, 10 * 1024 * 1024)
 
 chunk_len = 256 * 1024
 
@@ -79,15 +86,19 @@ key = cipher.generate_key()
 # The key is copied and the input key is zeroized for security reasons.
 # The copied key will also be zeroized when the object is dropped.
 enc = REncrypt(cipher, key)
-plaintext_len, _, buf = enc.create_buf(chunk_len)
+plaintext_len = chunk_len;
+ciphertext_len = enc.ciphertext_len(plaintext_len)
+buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
 aad = b"AAD"
 
 # encrypt
 print("encryping...")
+h1 = bytes(32)
 with open(fout, "wb", buffering=plaintext_len) as file_out:
     i = 0
     for read in read_file_in_chunks(fin, buf[:plaintext_len]):
+        h1 = hash(buf[:read])
         ciphertext_len = enc.encrypt(buf, read, i, aad)
         file_out.write(buf[:ciphertext_len])
         i += 1
@@ -96,18 +107,20 @@ with open(fout, "wb", buffering=plaintext_len) as file_out:
 # decrypt
 print("decryping...")
 tmp = fout + ".dec"
+h2 = bytes(32)
 with open(tmp, "wb", buffering=plaintext_len) as file_out:
     i = 0
     for read in read_file_in_chunks(fout, buf):
         plaintext_len2 = enc.decrypt(buf, read, i, aad)
+        h2 = hash(buf[:plaintext_len2])
         file_out.write(buf[:plaintext_len2])
         i += 1
     file_out.flush()
 
-compare_files_by_hash(fin, tmp)
+assert compare_files_by_hash(fin, tmp)
 
 delete_dir(tmp_dir)
-# best practice, you should always zeroize the plaintext and key after you are done with them
-enc.zeroize(buf)
+# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+zeroize_np(buf)
 
 print("bye!")
