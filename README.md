@@ -6,7 +6,7 @@
 
 > ⚠️ **Warning**  
 > ***This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle it should offer as similar level of security.  
-> This is still under development. Please do not use it with sensitive data just yet. Please wait for a stable release.  
+> This is still under development. Please do not use it with sensitive data just yet. Please wait for a stable release and maybe an audit.  
 > It's mostly ideal for experimental and learning projects.***
 
 A Python encryption library implemented in Rust. It supports `AEAD` with `AES-GCM` and `ChaCha20Poly1305`. It uses [ring](https://crates.io/crates/ring) to handle encryption.  
