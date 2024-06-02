@@ -3,7 +3,7 @@
 #
 #    maturin generate-ci github
 #
-name: PyPI
+name: CI
 
 on:
   push:
