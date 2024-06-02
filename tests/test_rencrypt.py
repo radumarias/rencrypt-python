@@ -1,10 +1,13 @@
 import errno
 import hashlib
+import io
 from pathlib import Path
 import shutil
 from rencrypt import REncrypt, Cipher
 import os
 import unittest
+import numpy as np
+
 
 def read_file_in_chunks(file_path, buf):
     with open(file_path, "rb") as file:
@@ -75,9 +78,12 @@ class TestStringMethods(unittest.TestCase):
         # The copied key will also be zeroized when the object is dropped.
         enc = REncrypt(cipher, key)
 
-        # we get a buffer based on block len 4096 plaintext
-        # the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
-        plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = enc.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+
         aad = b"AAD"
 
         # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
@@ -106,9 +112,12 @@ class TestStringMethods(unittest.TestCase):
         # The copied key will also be zeroized when the object is dropped.
         enc = REncrypt(cipher, key)
 
-        # we get a buffer based on block len 4096 plaintext
-        # the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
-        plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = enc.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+
         aad = b"AAD"
 
         plaintext = bytearray(os.urandom(plaintext_len))
@@ -154,7 +163,12 @@ class TestStringMethods(unittest.TestCase):
         # The key is copied and the input key is zeroized for security reasons.
         # The copied key will also be zeroized when the object is dropped.
         enc = REncrypt(cipher, key)
-        plaintext_len, _, buf = enc.create_buf(chunk_len)
+        
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = chunk_len
+        ciphertext_len = enc.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
         aad = b"AAD"
 
