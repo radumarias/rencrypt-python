@@ -2,6 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
 [![PyPy](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPy.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPy.yml)
+[![tests](https://github.com/radumarias/rencrypt-python/actions/workflows/tests.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/tests.yml)
 
 > ⚠️ **Warning**  
 > ***This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle it should offer as similar level of security.  
