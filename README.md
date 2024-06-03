@@ -4,7 +4,7 @@
 [![PyPI](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPI.yml)
 [![tests](https://github.com/radumarias/rencrypt-python/actions/workflows/tests.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/tests.yml)
 
-> ⚠️ **Warning**  
+> [!WARNING]
 > ***This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle at least the primitives should offer a similar level of security.  
 > This is still under development. Please do not use it with sensitive data just yet. Please wait for a stable release and maybe an audit.  
 > It's mostly ideal for experimental and learning projects.***
