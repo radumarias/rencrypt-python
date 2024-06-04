@@ -18,7 +18,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dynamic = ["version"]
-dependencies = ["libsodium"]
 [tool.maturin]
 features = ["pyo3/extension-module"]
 
