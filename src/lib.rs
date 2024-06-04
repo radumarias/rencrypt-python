@@ -458,7 +458,7 @@ impl Cipher {
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn REncrypt<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+fn rencrypt<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<Cipher>()?;
     m.add_class::<RingAlgorithm>()?;
     m.add_class::<CipherMeta>()?;
