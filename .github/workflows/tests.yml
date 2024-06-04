@@ -23,9 +23,10 @@ jobs:
     - name: Setup venv
       run: python -m venv .env
     - name: Activate venv
-    - if: ${{ matrix.runner == "windows-latest" }}
+      if: ${{ startsWith((matrix.runner, "windows" }}
       run: .env\Scripts\activate
-    - if: ${{ matrix.runner != "windows-latest" }}
+    - name: Activate venv
+      if: ${{ !startsWith((matrix.runner, "windows" }}
       run: .env/bin/activate
     - name: Install dependencies
       run: |
