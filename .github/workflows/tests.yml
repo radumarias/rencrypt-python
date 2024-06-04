@@ -76,5 +76,5 @@ jobs:
         maturin develop --release        
     - name: Run tests
       run: |
-        source .env/bin/activate
+        .env\Scripts\activate
         pytest
