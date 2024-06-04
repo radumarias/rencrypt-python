@@ -1,5 +1,8 @@
 #!/bin/sh
 
 pytest
-python examples/lock_and_zeroize.py
-python examples/zeroize_before_fork.py
+python examples/encrypt.py
+python examples/encrypt_into.py
+python examples/encrypt_from.py
+python examples/encrypt_file.py
+python bench/bench.py

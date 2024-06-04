@@ -20,7 +20,7 @@ Some benchmarks comparing it to [PyFLocker](https://github.com/arunanshub/pyfloc
 
 ## Buffer in memory
 
-This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
+This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
 `rencrypt` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
 
 **Encrypt seconds**  
@@ -325,11 +325,11 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 There are three ways in which you can use the lib, the main difference is the speed, some offers an easier way to use it sacrificing performance.
 
-1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
+1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
 **The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slices that reference to underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len + tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
 If you can directly collect the data to that buffer, like `BufferedReader.read_into()`, **this is the preffered way to go**.
-2. **From some bytes into the buffer**: using `encrypt_into()`/`decrypt_into()`, when you have some arbitrary `bytes` that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in buffer. This is a bit slower, especially for large data, because it needs to copy the bytes to the buffer.
-3. **From some bytes to another new bytes**: using `encrypt_from()`/`decrypt_from()`, it doesn't use the buffer at all, you just got some bytes you want to work with and you receive back another new bytes. This is the slowest one because it needs to first allocate a buffer, copy the data to the buffer, perform the operation then return that buffer as bytes. It's the easiest to use but is not so performant.
+2. **From some bytes into the buffer**: using `encrypt_into()`/`decrypt_into()`, when you have some arbitrary data that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in the buffer. This is a bit slower, especially for large data, because it first needs to copy the bytes to the buffer.
+3. **From some bytes to another new bytes**: using `encrypt_from()`/`decrypt_from()`, it doesn't use the buffer at all, you just pass some bytes and you receive back another bytes. This is the slowest one because it needs to first allocate a buffer, copy the data to the buffer, perform the operation in-place in the buffer then return the buffer as bytes. It's the easiest to use but is not so performant.
 
 ## Encryption provider
 
@@ -353,36 +353,8 @@ This is the most performant way to use it as it will not copy bytes to the buffe
 ```python
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
-from zeroize import zeroize1
-from zeroize import zeroize_np
+from zeroize import zeroize1, mlock, munlock
 import numpy as np
-import ctypes
-
-
-# Load the C standard library
-LIBC = ctypes.CDLL("libc.so.6")
-MLOCK = LIBC.mlock
-MUNLOCK = LIBC.munlock
-
-# Define mlock and munlock argument types
-MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-
-
-def lock_memory(buffer):
-    """Locks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MLOCK(address, size) != 0:
-        raise RuntimeError("Failed to lock memory")
-
-
-def unlock_memory(buffer):
-    """Unlocks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MUNLOCK(address, size) != 0:
-        raise RuntimeError("Failed to unlock memory")
 
 
 if __name__ == "__main__":
@@ -392,13 +364,13 @@ if __name__ == "__main__":
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
         # for security reasons we lock the memory of the key so it won't be swapped to disk
-        lock_memory(key)
+        mlock(key)
         cipher_meta.generate_key(key)
         # The key is copied and the input key is zeroized for security reasons.
         # The copied key will also be zeroized when the object is dropped.
         cipher = Cipher(cipher_meta, key)
         # it was zeroized we can unlock it
-        unlock_memory(key)
+        munlock(key)
 
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
@@ -406,7 +378,7 @@ if __name__ == "__main__":
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
-        lock_memory(buf)
+        mlock(buf)
 
         aad = b"AAD"
 
@@ -414,7 +386,7 @@ if __name__ == "__main__":
         # but for the sake of example we will allocate and copy the data
         plaintext = bytearray(os.urandom(plaintext_len))
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
-        lock_memory(plaintext)
+        mlock(plaintext)
         # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
         # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
         cipher.copy_slice1(plaintext, buf)
@@ -431,18 +403,16 @@ if __name__ == "__main__":
         plaintext_len = cipher.decrypt(buf, ciphertext_len, 42, aad)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
-        lock_memory(plaintext2)
+        mlock(plaintext2)
         assert plaintext == plaintext2
 
     finally:
         # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
         zeroize1(plaintext)
-        zeroize_np(plaintext2)
-        zeroize_np(buf)
+        zeroize1(buf)
 
-        unlock_memory(buf)
-        unlock_memory(plaintext)
-        unlock_memory(plaintext2)
+        munlock(buf)
+        munlock(plaintext)
 
         print("bye!")
 ```
@@ -459,35 +429,8 @@ from pathlib import Path
 import shutil
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import hashlib
-from zeroize import zeroize_np
+from zeroize import zeroize1, mlock, munlock
 import numpy as np
-import ctypes
-
-
-# Load the C standard library
-LIBC = ctypes.CDLL("libc.so.6")
-MLOCK = LIBC.mlock
-MUNLOCK = LIBC.munlock
-
-# Define mlock and munlock argument types
-MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-
-
-def lock_memory(buffer):
-    """Locks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MLOCK(address, size) != 0:
-        raise RuntimeError("Failed to lock memory")
-
-
-def unlock_memory(buffer):
-    """Unlocks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MUNLOCK(address, size) != 0:
-        raise RuntimeError("Failed to unlock memory")
 
 
 def read_file_in_chunks(file_path, buf):
@@ -505,12 +448,6 @@ def hash_file(file_path):
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_algo.update(chunk)
-    return hash_algo.hexdigest()
-
-
-def hash(bytes_in):
-    hash_algo = hashlib.sha256()
-    hash_algo.update(bytes_in)
     return hash_algo.hexdigest()
 
 
@@ -570,14 +507,14 @@ if __name__ == "__main__":
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
         # for security reasons we lock the memory of the key so it won't be swapped to disk
-        lock_memory(key)
+        mlock(key)
         cipher_meta.generate_key(key)
         # The key is copied and the input key is zeroized for security reasons.
         # The copied key will also be zeroized when the object is dropped.
         cipher = Cipher(cipher_meta, key)
         # it was zeroized we can unlock it
-        unlock_memory(key)
-        
+        munlock(key)
+
         plaintext_len = chunk_len
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
@@ -612,54 +549,26 @@ if __name__ == "__main__":
     finally:
         # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
         # buf will containt the last block plaintext so we need to zeroize it
-        zeroize_np(buf)
+        zeroize1(buf)
 
-        unlock_memory(buf)
-        
+        munlock(buf)
+
     print("bye!")
 ```
 
 ## Encrypt and decrypt from some bytes into the buffer
 
-`encrypt_into()`/`decrypt_into()` or `encrypt_into1()`/`decrypt_into1()`
+`encrypt_into()`/`decrypt_into()`
 
-This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some `bytes` from somewhere else.
+This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some data from somewhere else.
 
 For `encrypt_into()`/`decrypt_into()` the plaintext is `bytes`.
 
 ```python
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
-from zeroize import zeroize1
-from zeroize import zeroize_np
+from zeroize import zeroize1, mlock, munlock
 import numpy as np
-import ctypes
-
-
-# Load the C standard library
-LIBC = ctypes.CDLL("libc.so.6")
-MLOCK = LIBC.mlock
-MUNLOCK = LIBC.munlock
-
-# Define mlock and munlock argument types
-MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-
-
-def lock_memory(buffer):
-    """Locks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MLOCK(address, size) != 0:
-        raise RuntimeError("Failed to lock memory")
-
-
-def unlock_memory(buffer):
-    """Unlocks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MUNLOCK(address, size) != 0:
-        raise RuntimeError("Failed to unlock memory")
 
 
 if __name__ == "__main__":
@@ -669,13 +578,13 @@ if __name__ == "__main__":
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
         # for security reasons we lock the memory of the key so it won't be swapped to disk
-        lock_memory(key)
+        mlock(key)
         cipher_meta.generate_key(key)
         # The key is copied and the input key is zeroized for security reasons.
         # The copied key will also be zeroized when the object is dropped.
         cipher = Cipher(cipher_meta, key)
         # it was zeroized we can unlock it
-        unlock_memory(key)
+        munlock(key)
 
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
@@ -683,17 +592,17 @@ if __name__ == "__main__":
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
-        lock_memory(buf)
+        mlock(buf)
 
         aad = b"AAD"
 
         plaintext = bytearray(os.urandom(plaintext_len))
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
-        lock_memory(plaintext)
+        mlock(plaintext)
 
         # encrypt it, after this will have the ciphertext in the buffer
         print("encryping...")
-        ciphertext_len = cipher.encrypt_into1(plaintext, buf, 42, aad)
+        ciphertext_len = cipher.encrypt_into(plaintext, buf, 42, aad)
         cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
@@ -701,66 +610,30 @@ if __name__ == "__main__":
         plaintext_len = cipher.decrypt_into(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
-        lock_memory(plaintext2)
+        mlock(plaintext2)
         assert plaintext == plaintext2
 
     finally:
         # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
         zeroize1(plaintext)
-        zeroize_np(plaintext2)
-        zeroize_np(buf)
+        zeroize1(buf)
 
-        unlock_memory(buf)
-        unlock_memory(plaintext)
-        unlock_memory(plaintext2)
+        munlock(buf)
+        munlock(plaintext)
 
         print("bye!")
 ```
 
-For `encrypt_into1()`/`decrypt_into1()` the only difference is that the input is `bytearray`.
-
-
 ## Encrypt and decrypt from some bytes to another new bytes, without using the buffer
 
-`encrypt_from()`/`decrypt_from()` or `encrypt_from1()`/`decrypt_from1()`
+`encrypt_from()`/`decrypt_from()`
 
 This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
 
-For `encrypt_from()`/`decrypt_from()` the plaintext is `bytes`.
-
 ```python
-# This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
-
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
-from zeroize import zeroize1
-import ctypes
-
-
-# Load the C standard library
-LIBC = ctypes.CDLL("libc.so.6")
-MLOCK = LIBC.mlock
-MUNLOCK = LIBC.munlock
-
-# Define mlock and munlock argument types
-MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-
-
-def lock_memory(buffer):
-    """Locks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MLOCK(address, size) != 0:
-        raise RuntimeError("Failed to lock memory")
-
-
-def unlock_memory(buffer):
-    """Unlocks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MUNLOCK(address, size) != 0:
-        raise RuntimeError("Failed to unlock memory")
+from zeroize import zeroize1, mlock, munlock
 
 
 if __name__ == "__main__":
@@ -770,29 +643,29 @@ if __name__ == "__main__":
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
         # for security reasons we lock the memory of the key so it won't be swapped to disk
-        lock_memory(key)
+        mlock(key)
         cipher_meta.generate_key(key)
         # The key is copied and the input key is zeroized for security reasons.
         # The copied key will also be zeroized when the object is dropped.
         cipher = Cipher(cipher_meta, key)
         # it was zeroized we can unlock it
-        unlock_memory(key)
+        munlock(key)
 
         aad = b"AAD"
 
         plaintext = bytearray(os.urandom(4096))
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
-        lock_memory(plaintext)
+        mlock(plaintext)
 
         # encrypt it, this will return the ciphertext
         print("encryping...")
-        ciphertext = cipher.encrypt_from1(plaintext, 42, aad)
+        ciphertext = cipher.encrypt_from(plaintext, 42, aad)
 
         # decrypt it
         print("decryping...")
-        plaintext2 = cipher.decrypt_from1(ciphertext, 42, aad)
+        plaintext2 = cipher.decrypt_from(ciphertext, 42, aad)
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
-        lock_memory(plaintext2)
+        mlock(plaintext2)
         assert plaintext == plaintext2
 
     finally:
@@ -800,13 +673,11 @@ if __name__ == "__main__":
         zeroize1(plaintext)
         zeroize1(plaintext2)
 
-        unlock_memory(plaintext)
-        unlock_memory(plaintext2)
+        munlock(plaintext)
+        munlock(plaintext2)
 
         print("bye!")
 ```
-
-For `encrypt_from1()`/`decrypt_from1()` the only difference is that the input is `bytearray`.
 
 # Building from source
 
@@ -840,7 +711,12 @@ python -m venv .env
 source .env/bin/activate
 pip install -r requirements.txt
 maturin develop --release
-python bench.py
+pytest
+python examples/encrypt.py
+python examples/encrypt_into.py
+python examples/encrypt_from.py
+python examples/encrypt_file.py
+python benches/bench.py
 ```
 
 # More benchmarks

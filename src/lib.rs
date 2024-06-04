@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use numpy::{PyArray1, PyArrayMethods};
 
 use pyo3::prelude::*;
-use pyo3::types::PyByteArray;
+use pyo3::types::{PyByteArray, PyBytes};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use rayon::iter::IndexedParallelIterator;
@@ -94,8 +94,8 @@ impl Cipher {
     /// The key is copied and the input key is zeroized for security reasons.
     /// The copied key will also be zeroized when the object is dropped.
     #[new]
-    pub fn new<'py>(cipher_meta: CipherMeta, key: Bound<'py, PyByteArray>) -> Self {
-        let key_mut = unsafe { key.as_bytes_mut() };
+    pub fn new<'py>(cipher_meta: CipherMeta, key: Bound<'py, PyAny>) -> PyResult<Self> {
+        let key_mut = as_array_mut(&key)?;
         let key = SecretVec::<u8>::new(key_mut.len(), |s| {
             s.copy_from_slice(key_mut);
         });
@@ -105,57 +105,42 @@ impl Cipher {
         let (sealing_key, nonce_sequence) = create_ring_sealing_key(alg, &key);
         let (opening_key, last_nonce) = create_ring_opening_key(alg, &key);
 
-        Self {
+        Ok(Self {
             cipher_meta,
             sealing_key: Arc::new(Mutex::new(sealing_key)),
             nonce_sequence,
             last_nonce,
             opening_key: Arc::new(Mutex::new(opening_key)),
             // key,
-        }
+        })
     }
 
     pub fn ciphertext_len(&self, plaintext_len: usize) -> usize {
         plaintext_len + overhead(self.cipher_meta)
     }
 
-    pub fn encrypt<'py>(&self, buf: &Bound<'py, PyArray1<u8>>, plaintext_len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_slice_mut().unwrap() };
-        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(data, plaintext_len, tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
+    pub fn encrypt<'py>(&self, buf: &Bound<'py, PyAny>, plaintext_len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(as_array_mut(buf)?, plaintext_len, tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
         encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
         Ok(plaintext_len + overhead(self.cipher_meta))
     }
 
-    pub fn encrypt_into<'py>(&self, plaintext: &[u8], buf: &Bound<'py, PyArray1<u8>>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_slice_mut().unwrap() };
-        copy_slice(plaintext, data);
-        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(data, plaintext.len(), tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
+    pub fn encrypt_into<'py>(&self, plaintext: &Bound<'py, PyAny>, buf: &Bound<'py, PyAny>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let plaintext = as_array(plaintext)?;
+        let buf = as_array_mut(buf)?;
+        copy_slice(plaintext, buf);
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(buf, plaintext.len(), tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
         encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
         Ok(plaintext.len() + overhead(self.cipher_meta))
     }
 
-    pub fn encrypt_into1<'py>(&self, plaintext: &Bound<'py, PyByteArray>, buf: &Bound<'py, PyArray1<u8>>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_slice_mut().unwrap() };
-        unsafe { copy_slice(plaintext.as_bytes(), data); }
-        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(data, plaintext.len(), tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
+    pub fn encrypt_from<'py>(&mut self, plaintext: &Bound<'py, PyAny>, block_index: u64, aad: &[u8], py: Python<'py>) -> PyResult<Bound<'py, PyByteArray>> {
+        let plaintext = as_array(plaintext)?;
+        let mut buf = vec![0; plaintext.len() + overhead(self.cipher_meta)];
+        copy_slice(plaintext, &mut buf);
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(&mut buf, plaintext.len(), tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
         encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
-        Ok(plaintext.len() + overhead(self.cipher_meta))
-    }
-
-    pub fn encrypt_from<'py>(&mut self, plaintext: &[u8], block_index: u64, aad: &[u8], py: Python<'py>) -> PyResult<Bound<'py, PyByteArray>> {
-        let mut data = vec![0; plaintext.len() + overhead(self.cipher_meta)];
-        copy_slice(plaintext, &mut data);
-        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(&mut data, plaintext.len(), tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
-        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
-        Ok(PyByteArray::new_bound(py, data.as_slice()))
-    }
-
-    pub fn encrypt_from1<'py>(&mut self, plaintext: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8], py: Python<'py>) -> PyResult<Bound<'py, PyByteArray>> {
-        let mut data = vec![0; plaintext.len() + overhead(self.cipher_meta)];
-        unsafe { copy_slice(plaintext.as_bytes(), &mut data); }
-        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(&mut data, plaintext.len(), tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
-        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
-        Ok(PyByteArray::new_bound(py, data.as_slice()))
+        Ok(PyByteArray::new_bound(py, buf.as_slice()))
     }
 
     // #[cfg(target_os = "linux")]
@@ -343,45 +328,31 @@ impl Cipher {
     //     Ok(())
     // }
 
-    pub fn decrypt<'py>(&mut self, buf: &Bound<'py, PyArray1<u8>>, plaintext_and_tag_len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_slice_mut().unwrap() };
-        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(data, plaintext_and_tag_len, nonce_len(self.cipher_meta));
+    pub fn decrypt<'py>(&mut self, buf: &Bound<'py, PyAny>, plaintext_and_tag_len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let buf = as_array_mut(buf)?;
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(buf, plaintext_and_tag_len, nonce_len(self.cipher_meta));
         decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
         Ok(plaintext_and_tag_len - overhead(self.cipher_meta))
     }
 
-    pub fn decrypt_into<'py>(&self, ciphertext_and_tag_and_nonce: &[u8], buf: &Bound<'py, PyArray1<u8>>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_slice_mut().unwrap() };
-        copy_slice(ciphertext_and_tag_and_nonce, data);
-        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(data, ciphertext_and_tag_and_nonce.len(), nonce_len(self.cipher_meta));
+    pub fn decrypt_into<'py>(&self, ciphertext_and_tag_and_nonce: &Bound<'py, PyAny>, buf: &Bound<'py, PyAny>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+        let ciphertext_and_tag_and_nonce = as_array(ciphertext_and_tag_and_nonce)?;
+        let buf = as_array_mut(buf)?;
+        copy_slice(ciphertext_and_tag_and_nonce, buf);
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(buf, ciphertext_and_tag_and_nonce.len(), nonce_len(self.cipher_meta));
         let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
         Ok(plaintext.len())
     }
 
-    pub fn decrypt_into1<'py>(&self, ciphertext_and_tag_and_nonce: &Bound<'py, PyByteArray>, buf: &Bound<'py, PyArray1<u8>>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let data = unsafe { buf.as_slice_mut().unwrap() };
-        unsafe { copy_slice(ciphertext_and_tag_and_nonce.as_bytes(), data); }
-        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(data, ciphertext_and_tag_and_nonce.len(), nonce_len(self.cipher_meta));
-        let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
-        Ok(plaintext.len())
-    }
-
-    pub fn decrypt_from<'py>(&self, py: Python<'py>, ciphertext_and_tag_and_nonce: &[u8], block_index: u64, aad: &[u8]) -> PyResult<Bound<'py, PyByteArray>> {
-        let mut data = vec![0_u8; ciphertext_and_tag_and_nonce.len()];
-        copy_slice(ciphertext_and_tag_and_nonce, &mut data);
-        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(&mut data, ciphertext_and_tag_and_nonce.len(), nonce_len(self.cipher_meta));
+    pub fn decrypt_from<'py>(&self, py: Python<'py>, ciphertext_and_tag_and_nonce: &Bound<'py, PyAny>, block_index: u64, aad: &[u8]) -> PyResult<Bound<'py, PyByteArray>> {
+        let ciphertext_and_tag_and_nonce = as_array(ciphertext_and_tag_and_nonce)?;
+        let mut buf = vec![0_u8; ciphertext_and_tag_and_nonce.len()];
+        copy_slice(ciphertext_and_tag_and_nonce, &mut buf);
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(&mut buf, ciphertext_and_tag_and_nonce.len(), nonce_len(self.cipher_meta));
         let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
         Ok(PyByteArray::new_bound(py, &plaintext))
     }
-
-    pub fn decrypt_from1<'py>(&self, py: Python<'py>, ciphertext_and_tag_and_nonce: &Bound<'py, PyByteArray>, block_index: u64, aad: &[u8]) -> PyResult<Bound<'py, PyByteArray>> {
-        let mut data = vec![0_u8; ciphertext_and_tag_and_nonce.len()];
-        unsafe { copy_slice(ciphertext_and_tag_and_nonce.as_bytes(), &mut data); }
-        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(&mut data, ciphertext_and_tag_and_nonce.len(), nonce_len(self.cipher_meta));
-        let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
-        Ok(PyByteArray::new_bound(py, &plaintext))
-    }
-
+    
     // pub fn decrypt_file(&mut self, src: &str, dst: &str, aad: &[u8]) -> PyResult<()> {
     //     let nonce_len = nonce_len(self.cipher_meta);
     //     let provider = self.provider;
@@ -654,6 +625,38 @@ impl NonceSequence for ExistingNonceSequence {
     }
 }
 
+fn as_array_mut<'a>(arr: &'a Bound<PyAny>) -> PyResult<&'a mut [u8]> {
+    let arr = unsafe {
+        if let Ok(arr) = arr.downcast::<PyByteArray>() {
+            arr.as_bytes_mut()
+        } else if let Ok(arr) = arr.downcast::<PyArray1<u8>>() {
+            arr.as_slice_mut().unwrap()
+        } else {
+            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                "Expected a PyByteArray or PyArray1<u8>",
+            ));
+        }
+    };
+    Ok(arr)
+}
+
+fn as_array<'a>(arr: &'a Bound<PyAny>) -> PyResult<&'a [u8]> {
+    let arr = unsafe {
+        if let Ok(arr) = arr.downcast::<PyByteArray>() {
+            arr.as_bytes()
+        } else if let Ok(arr) = arr.downcast::<PyBytes>() {
+            arr.as_bytes()
+        } else if let Ok(arr) = arr.downcast::<PyArray1<u8>>() {
+            arr.as_slice().unwrap()
+        } else {
+            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                "Expected a PyByteArray or PyArray1<u8>",
+            ));
+        }
+    };
+    Ok(arr)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -704,7 +707,7 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt() {
-        let cipher_meta = Ring {alg: RingAlgorithm::AES256GCM};
+        let cipher_meta = Ring { alg: RingAlgorithm::AES256GCM };
         let alg = match cipher_meta { Ring { alg } => alg };
         let key = SecretVec::<u8>::new(get_ring_algorithm(alg).key_len(), |s| {
             create_rng().fill_bytes(s);

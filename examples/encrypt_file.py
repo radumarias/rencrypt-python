@@ -5,35 +5,8 @@ from pathlib import Path
 import shutil
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import hashlib
-from zeroize import zeroize_np
+from zeroize import zeroize1, mlock, munlock
 import numpy as np
-import ctypes
-
-
-# Load the C standard library
-LIBC = ctypes.CDLL("libc.so.6")
-MLOCK = LIBC.mlock
-MUNLOCK = LIBC.munlock
-
-# Define mlock and munlock argument types
-MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-
-
-def lock_memory(buffer):
-    """Locks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MLOCK(address, size) != 0:
-        raise RuntimeError("Failed to lock memory")
-
-
-def unlock_memory(buffer):
-    """Unlocks the memory of the given buffer."""
-    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
-    size = len(buffer)
-    if MUNLOCK(address, size) != 0:
-        raise RuntimeError("Failed to unlock memory")
 
 
 def read_file_in_chunks(file_path, buf):
@@ -110,13 +83,13 @@ if __name__ == "__main__":
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
         # for security reasons we lock the memory of the key so it won't be swapped to disk
-        lock_memory(key)
+        mlock(key)
         cipher_meta.generate_key(key)
         # The key is copied and the input key is zeroized for security reasons.
         # The copied key will also be zeroized when the object is dropped.
         cipher = Cipher(cipher_meta, key)
         # it was zeroized we can unlock it
-        unlock_memory(key)
+        munlock(key)
 
         plaintext_len = chunk_len
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
@@ -152,8 +125,8 @@ if __name__ == "__main__":
     finally:
         # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
         # buf will containt the last block plaintext so we need to zeroize it
-        zeroize_np(buf)
+        zeroize1(buf)
 
-        unlock_memory(buf)
+        munlock(buf)
 
     print("bye!")

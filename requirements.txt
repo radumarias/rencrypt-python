@@ -1,4 +1,4 @@
 maturin
 numpy
-zeroize
+zeroize>=0.2.0
 pytest
