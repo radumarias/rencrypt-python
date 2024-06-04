@@ -77,4 +77,4 @@ jobs:
     - name: Run tests
       run: |
         .env\Scripts\activate
-        tests.bat
+        tests
