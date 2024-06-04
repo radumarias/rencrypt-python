@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        runner: [ubuntu-latest, windows-latest, macos-latest, macos-14]
+        runner: [ubuntu-latest, windows-latest, macos-latest]
         python-version: [3.7, 3.8, 3.9, "3.10"]
     steps:
     - name: Check out repository code
@@ -23,15 +23,9 @@ jobs:
     - name: Setup venv
       run: python -m venv .env
     - if: ${{ startsWith(matrix.runner, 'windows') }}
-      run: echo windows
+      run: .env\Scripts\activate
     - if: ${{ !startsWith(matrix.runner, 'windows') }}
-      run: echo unix      
-    # - name: Activate venv
-    #   if: ${{ startsWith((matrix.runner, "windows" }}
-    #   run: .env\Scripts\activate
-    # - name: Activate venv
-    #   if: ${{ !startsWith((matrix.runner, "windows" }}
-    #   run: .env/bin/activate
+      run: .env/bin/activate
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
