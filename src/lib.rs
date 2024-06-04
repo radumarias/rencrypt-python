@@ -20,7 +20,7 @@ mod encryptor;
 // on benchmarks that seem to be the case.
 // We performed 10.000 encryption operations for each size varying from 64KB to 1GB,
 // after 8MB it tops up to similar values.
-// const FILE_BLOCK_LEN: usize = 256 * 1024;
+// Const FILE_BLOCK_LEN: usize = 256 * 1024;
 
 #[pyclass]
 #[derive(Debug, Clone, Copy)]
@@ -458,7 +458,7 @@ impl Cipher {
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn Cipher<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+fn REncrypt<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<Cipher>()?;
     m.add_class::<RingAlgorithm>()?;
     m.add_class::<CipherMeta>()?;
