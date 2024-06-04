@@ -1,12 +1,13 @@
-# Cipher
+# REncrypt
 
-[![PyPI version](https://badge.fury.io/py/Cipher.svg)](https://badge.fury.io/py/Cipher)
-[![PyPy](https://github.com/radumarias/Cipher-python/actions/workflows/PyPy.yml/badge.svg)](https://github.com/radumarias/Cipher-python/actions/workflows/PyPy.yml)
+[![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
+[![PyPI](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPI.yml)
+[![tests](https://github.com/radumarias/rencrypt-python/actions/workflows/tests.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/tests.yml)  
 
-> ⚠️ **Warning**  
-> ***This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle it should offer as similar level of security.  
-> This is still under development. Please do not use it with sensitive data just yet. Please wait for a stable release.  
-> It's mostly ideal for experimental and learning projects.***
+> [!WARNING]
+> **This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle at least the primitives should offer a similar level of security.  
+> This is still under development. Please do not use it with sensitive data just yet. Please wait for a stable release and maybe an audit.  
+> It's mostly ideal for experimental and learning projects.**
 
 A Python encryption library implemented in Rust. It supports `AEAD` with `AES-GCM` and `ChaCha20Poly1305`. It uses [ring](https://crates.io/crates/ring) to handle encryption.  
 If offers slightly higher speed compared to other Python libs, especially for small chunks of data. The API also tries to be easy to use but it's more optimized for speed than usability.
@@ -838,7 +839,7 @@ This is usually done by running one of the following (note the leading DOT):
 python -m venv .env
 source .env/bin/activate
 pip install -r requirements.txt
-maturin develop
+maturin develop --release
 python bench.py
 ```
 
