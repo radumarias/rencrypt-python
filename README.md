@@ -649,7 +649,7 @@ source .env/bin/activate
 pip install maturin
 pip install zeroize
 pip install numpy
-maturin develop
+maturin develop --release
 python bench.py
 ```
 
