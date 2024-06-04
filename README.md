@@ -679,7 +679,7 @@ if __name__ == "__main__":
         print("bye!")
 ```
 
-# Building from source
+# Build from source
 
 ## Browser
 
