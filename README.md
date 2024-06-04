@@ -21,7 +21,7 @@ Some benchmarks comparing it to [PyFLocker](https://github.com/arunanshub/pyfloc
 ## Buffer in memory
 
 This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
-`Cipher` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
+`rencrypt` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
 
 **Encrypt seconds**  
 ![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt.png?raw=true)
@@ -35,9 +35,9 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
     <thead>
         <tr>
             <th>MB</th>
-            <th>Cipher<br>encrypt</th>
+            <th>rencrypt<br>encrypt</th>
             <th>PyFLocker<br>encrypt</th>
-            <th>Cipher<br>decrypt</th>
+            <th>rencrypt<br>decrypt</th>
             <th>PyFLocker<br>decrypt</th>
         </tr>
     </thead>
@@ -170,9 +170,9 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
     <thead>
         <tr>
             <th>MB</th>
-            <th>Cipher<br>encrypt</th>
+            <th>rencrypt<br>encrypt</th>
             <th>PyFLocker<br>encrypt</th>
-            <th>Cipher<br>decrypt</th>
+            <th>rencrypt<br>decrypt</th>
             <th>PyFLocker<br>decrypt</th>
         </tr>
         </tr>
@@ -836,6 +836,7 @@ This is usually done by running one of the following (note the leading DOT):
 . "$HOME/.cargo/env"
 ```
 ```
+sudo apt-get update && sudo apt-get install libsodium-dev
 python -m venv .env
 source .env/bin/activate
 pip install -r requirements.txt
@@ -858,15 +859,15 @@ python bench.py
     <thead>
         <tr>
             <th>MB</th>
-            <th>Cipher<br>encrypt</th>
+            <th>rencrypt<br>encrypt</th>
             <th>PyFLocker<br>encrypt update_into</th>
-            <th>Cipher<br>encrypt_into</th>
-            <th>Cipher<br>encrypt_from</th>
+            <th>rencrypt<br>encrypt_into</th>
+            <th>rencrypt<br>encrypt_from</th>
             <th>PyFLocker<br>encrypt update</th>
-            <th>Cipher<br>decrypt</th>
+            <th>rencrypt<br>decrypt</th>
             <th>PyFLocker<br>decrypt update_into</th>
-            <th>Cipher<br>decrypt_into</th>
-            <th>Cipher<br>decrypt_from</th>
+            <th>rencrypt<br>decrypt_into</th>
+            <th>rencrypt<br>decrypt_from</th>
             <th>PyFLocker<br>decrypt update</th>
         </tr>
     </thead>
