@@ -28,7 +28,7 @@ jobs:
         pip install maturin
         maturin develop --release        
         pip install pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install -r requirements.txt
 
     - name: Run tests
       run: |
