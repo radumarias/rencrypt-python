@@ -20,16 +20,20 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Setup venv
+      run: python -m venv .env
+    - name: Activate venv
+    - if: ${{ matrix.runner == "windows-latest" }}
+      run: .env\Scripts\activate
+    - if: ${{ matrix.runner != "windows-latest" }}
+      run: .env/bin/activate
     - name: Install dependencies
       run: |
-        python -m venv .env
-        .env/bin/activate
         python -m pip install --upgrade pip
         pip install maturin
         maturin develop --release        
         pip install pytest
         pip install -r requirements.txt
-
     - name: Run tests
       run: |
         source .env/bin/activate
