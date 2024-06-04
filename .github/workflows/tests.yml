@@ -22,12 +22,10 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Setup venv
       run: python -m venv .env
-    - id: generator
-      run: echo "num=$RANDOM % 2" 
-    - if: steps.generator.outputs.num == 0
-      run: echo zero
-    - if: steps.generator.outputs.num == 1
-      run: echo one      
+    - if: ${{ startsWith((matrix.runner, "windows" }}
+      run: echo windows
+    - if: ${{ !startsWith((matrix.runner, "windows" }}
+      run: echo unix      
     # - name: Activate venv
     #   if: ${{ startsWith((matrix.runner, "windows" }}
     #   run: .env\Scripts\activate
