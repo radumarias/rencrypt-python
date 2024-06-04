@@ -94,8 +94,8 @@ class TestStringMethods(unittest.TestCase):
         plaintext = bytearray(os.urandom(plaintext_len))
         mlock(plaintext)
         # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
-        # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
-        cipher.copy_slice1(plaintext, buf)
+        # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
+        cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
         ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
         cipertext = buf[:ciphertext_len]
@@ -134,8 +134,8 @@ class TestStringMethods(unittest.TestCase):
         plaintext = bytearray(os.urandom(plaintext_len))
         mlock(plaintext)
         # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
-        # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
-        cipher.copy_slice1(plaintext, buf)
+        # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
+        cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
         ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
         cipertext = buf[:ciphertext_len]
@@ -150,58 +150,6 @@ class TestStringMethods(unittest.TestCase):
         
         munlock(buf)
 
-    def test_encrypt_into_aes(self):
-        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
-        key_len = cipher_meta.key_len()
-        key = bytearray(key_len)
-        cipher_meta.generate_key(key)
-        cipher = Cipher(cipher_meta, key)
-
-        # we create a buffer based on plaintext block len of 4096
-        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
-        plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
-        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-
-        aad = b"AAD"
-
-        plaintext = bytearray(os.urandom(plaintext_len))
-
-        # encrypt it, after this will have the ciphertext in the buffer
-        ciphertext_len = cipher.encrypt_into(plaintext, buf, 42, aad)
-        cipertext = bytes(buf[:ciphertext_len])
-
-        # decrypt it
-        plaintext_len = cipher.decrypt_into(cipertext, buf, 42, aad)
-        plaintext2 = buf[:plaintext_len]
-        self.assertEqual(plaintext, plaintext2)
-    
-    def test_encrypt_into_cha(self):
-        cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)
-        key_len = cipher_meta.key_len()
-        key = bytearray(key_len)
-        cipher_meta.generate_key(key)
-        cipher = Cipher(cipher_meta, key)
-
-        # we create a buffer based on plaintext block len of 4096
-        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
-        plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
-        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-
-        aad = b"AAD"
-
-        plaintext = bytearray(os.urandom(plaintext_len))
-
-        # encrypt it, after this will have the ciphertext in the buffer
-        ciphertext_len = cipher.encrypt_into(plaintext, buf, 42, aad)
-        cipertext = bytes(buf[:ciphertext_len])
-
-        # decrypt it
-        plaintext_len = cipher.decrypt_into(cipertext, buf, 42, aad)
-        plaintext2 = buf[:plaintext_len]
-        self.assertEqual(plaintext, plaintext2)
-    
     def test_encrypt_from_aes(self):
         cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
         key_len = cipher_meta.key_len()
@@ -209,34 +157,51 @@ class TestStringMethods(unittest.TestCase):
         cipher_meta.generate_key(key)
         cipher = Cipher(cipher_meta, key)
 
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+
         aad = b"AAD"
 
-        plaintext = bytearray(os.urandom(4096))
+        plaintext = bytearray(os.urandom(plaintext_len))
 
-        # encrypt it, this will return the ciphertext
-        ciphertext = cipher.encrypt_from(plaintext, 42, aad)
+        # encrypt it, after this will have the ciphertext in the buffer
+        ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
+        cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
-        plaintext2 = cipher.decrypt_from(ciphertext, 42, aad)
+        plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
+        plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
     
-    def test_encrypt_from_chacha(self):
+    def test_encrypt_from_cha(self):
         cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
         cipher_meta.generate_key(key)
         cipher = Cipher(cipher_meta, key)
 
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+
         aad = b"AAD"
 
-        plaintext = bytearray(os.urandom(4096))
+        plaintext = bytearray(os.urandom(plaintext_len))
 
-        # encrypt it, this will return the ciphertext
-        ciphertext = cipher.encrypt_from(plaintext, 42, aad)
+        # encrypt it, after this will have the ciphertext in the buffer
+        ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
+        cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
-        plaintext2 = cipher.decrypt_from(ciphertext, 42, aad)
+        plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
+        plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
+    
     
     def test_encrypt_file_aes(self):
         tmp_dir = create_directory_in_home("Cipher_tmp")

@@ -323,13 +323,12 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 # Usage
 
-There are three ways in which you can use the lib, the main difference is the speed, some offers an easier way to use it sacrificing performance.
+There are two ways in which you can use the lib, the first one is a bit faster, the second offers a bit more flexible way to use it sacrificing a bit of performance.
 
 1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
 **The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slices that reference to underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len + tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
 If you can directly collect the data to that buffer, like `BufferedReader.read_into()`, **this is the preffered way to go**.
 2. **From some bytes into the buffer**: using `encrypt_into()`/`decrypt_into()`, when you have some arbitrary data that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in the buffer. This is a bit slower, especially for large data, because it first needs to copy the bytes to the buffer.
-3. **From some bytes to another new bytes**: using `encrypt_from()`/`decrypt_from()`, it doesn't use the buffer at all, you just pass some bytes and you receive back another bytes. This is the slowest one because it needs to first allocate a buffer, copy the data to the buffer, perform the operation in-place in the buffer then return the buffer as bytes. It's the easiest to use but is not so performant.
 
 ## Encryption provider
 
@@ -351,6 +350,8 @@ You can see more in [examples](https://github.com/radumarias/rencrypt-python/tre
 This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
 ```python
+# This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
+
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1, mlock, munlock
@@ -389,7 +390,7 @@ if __name__ == "__main__":
         mlock(plaintext)
         # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
         # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
-        cipher.copy_slice1(plaintext, buf)
+        cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
         print("encryping...")
         ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
@@ -558,13 +559,14 @@ if __name__ == "__main__":
 
 ## Encrypt and decrypt from some bytes into the buffer
 
-`encrypt_into()`/`decrypt_into()`
+`encrypt_from()`/`decrypt_from()`
 
 This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some data from somewhere else.
 
-For `encrypt_into()`/`decrypt_into()` the plaintext is `bytes`.
-
 ```python
+# This is a bit slower than handling data only via the buffer, especially for large plaintext,
+# but there are situations when you can't directly collect the data to the buffer but have some bytes from somewhere else.
+
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1, mlock, munlock
@@ -602,12 +604,12 @@ if __name__ == "__main__":
 
         # encrypt it, after this will have the ciphertext in the buffer
         print("encryping...")
-        ciphertext_len = cipher.encrypt_into(plaintext, buf, 42, aad)
+        ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
         cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
         print("decryping...")
-        plaintext_len = cipher.decrypt_into(cipertext, buf, 42, aad)
+        plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
         mlock(plaintext2)
@@ -620,61 +622,6 @@ if __name__ == "__main__":
 
         munlock(buf)
         munlock(plaintext)
-
-        print("bye!")
-```
-
-## Encrypt and decrypt from some bytes to another new bytes, without using the buffer
-
-`encrypt_from()`/`decrypt_from()`
-
-This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
-
-```python
-from rencrypt import Cipher, CipherMeta, RingAlgorithm
-import os
-from zeroize import zeroize1, mlock, munlock
-
-
-if __name__ == "__main__":
-    try:
-        # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
-        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
-        key_len = cipher_meta.key_len()
-        key = bytearray(key_len)
-        # for security reasons we lock the memory of the key so it won't be swapped to disk
-        mlock(key)
-        cipher_meta.generate_key(key)
-        # The key is copied and the input key is zeroized for security reasons.
-        # The copied key will also be zeroized when the object is dropped.
-        cipher = Cipher(cipher_meta, key)
-        # it was zeroized we can unlock it
-        munlock(key)
-
-        aad = b"AAD"
-
-        plaintext = bytearray(os.urandom(4096))
-        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
-        mlock(plaintext)
-
-        # encrypt it, this will return the ciphertext
-        print("encryping...")
-        ciphertext = cipher.encrypt_from(plaintext, 42, aad)
-
-        # decrypt it
-        print("decryping...")
-        plaintext2 = cipher.decrypt_from(ciphertext, 42, aad)
-        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
-        mlock(plaintext2)
-        assert plaintext == plaintext2
-
-    finally:
-        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
-        zeroize1(plaintext)
-        zeroize1(plaintext2)
-
-        munlock(plaintext)
-        munlock(plaintext2)
 
         print("bye!")
 ```
@@ -733,17 +680,19 @@ python benches/bench.py
 <table>
     <thead>
         <tr>
-            <th>MB</th>
-            <th>rencrypt<br>encrypt</th>
-            <th>PyFLocker<br>encrypt update_into</th>
-            <th>rencrypt<br>encrypt_into</th>
-            <th>rencrypt<br>encrypt_from</th>
-            <th>PyFLocker<br>encrypt update</th>
-            <th>rencrypt<br>decrypt</th>
-            <th>PyFLocker<br>decrypt update_into</th>
-            <th>rencrypt<br>decrypt_into</th>
-            <th>rencrypt<br>decrypt_from</th>
-            <th>PyFLocker<br>decrypt update</th>
+            <td>MB</td>
+            <td>rencrypt<br>encrypt</td>
+            <td>PyFLocker<br>encrypt update_into</td>
+            <td>rencrypt<br>encrypt_from</td>
+            <td>PyFLocker<br>encrypt update</td>
+            <td>rencrypt<br>decrypt</td>
+            <td>PyFLocker<br>decrypt update_into</td>
+            <td>rencrypt<br>decrypt_from</td>
+            <td>
+                <div>
+                    <div>PyFLocker<br>decrypt update</div>
+                </div>
+            </td>
         </tr>
     </thead>
     <tbody>
@@ -752,12 +701,10 @@ python benches/bench.py
             <td>0.00001</td>
             <td>0.00091</td>
             <td>0.00001</td>
-            <td>0.00002</td>
             <td>0.00009</td>
             <td>0.00001</td>
             <td>0.00004</td>
             <td>0.00001</td>
-            <td>0.00003</td>
             <td>0.00005</td>
         </tr>
         <tr>
@@ -765,12 +712,10 @@ python benches/bench.py
             <td>0.00001</td>
             <td>0.00005</td>
             <td>0.00002</td>
-            <td>0.00002</td>
             <td>0.00005</td>
             <td>0.00001</td>
             <td>0.00004</td>
             <td>0.00002</td>
-            <td>0.00004</td>
             <td>0.00008</td>
         </tr>
         <tr>
@@ -778,12 +723,10 @@ python benches/bench.py
             <td>0.00002</td>
             <td>0.00005</td>
             <td>0.00003</td>
-            <td>0.00005</td>
             <td>0.00011</td>
             <td>0.00003</td>
             <td>0.00005</td>
             <td>0.00003</td>
-            <td>0.00007</td>
             <td>0.00013</td>
         </tr>
         <tr>
@@ -791,38 +734,32 @@ python benches/bench.py
             <td>0.00004</td>
             <td>0.00008</td>
             <td>0.00007</td>
-            <td>0.00009</td>
             <td>0.00019</td>
             <td>0.00005</td>
             <td>0.00009</td>
             <td>0.00007</td>
-            <td>0.00016</td>
             <td>0.00023</td>
         </tr>
         <tr>
             <td>0.5</td>
-            <td>0.00010</td>
+            <td>0.0001</td>
             <td>0.00014</td>
             <td>0.00015</td>
-            <td>0.00021</td>
             <td>0.00035</td>
             <td>0.00011</td>
             <td>0.00015</td>
             <td>0.00014</td>
-            <td>0.00033</td>
             <td>0.00043</td>
         </tr>
         <tr>
             <td>1</td>
             <td>0.00021</td>
             <td>0.00024</td>
-            <td>0.00080</td>
-            <td>0.00066</td>
+            <td>0.0008</td>
             <td>0.00082</td>
             <td>0.00021</td>
             <td>0.00029</td>
             <td>0.00044</td>
-            <td>0.00081</td>
             <td>0.00103</td>
         </tr>
         <tr>
@@ -831,11 +768,9 @@ python benches/bench.py
             <td>0.00052</td>
             <td>0.00082</td>
             <td>0.00147</td>
-            <td>0.00147</td>
             <td>0.00044</td>
             <td>0.00058</td>
             <td>0.00089</td>
-            <td>0.00162</td>
             <td>0.00176</td>
         </tr>
         <tr>
@@ -843,25 +778,21 @@ python benches/bench.py
             <td>0.00089</td>
             <td>0.00098</td>
             <td>0.00174</td>
-            <td>0.00218</td>
             <td>0.00284</td>
             <td>0.00089</td>
             <td>0.00117</td>
-            <td>0.00130</td>
-            <td>0.00273</td>
-            <td>0.00340</td>
+            <td>0.0013</td>
+            <td>0.0034</td>
         </tr>
         <tr>
             <td>8</td>
             <td>0.00184</td>
-            <td>0.00190</td>
+            <td>0.0019</td>
             <td>0.00263</td>
-            <td>0.00462</td>
             <td>0.00523</td>
             <td>0.00192</td>
             <td>0.00323</td>
             <td>0.00283</td>
-            <td>0.00484</td>
             <td>0.00571</td>
         </tr>
         <tr>
@@ -869,12 +800,10 @@ python benches/bench.py
             <td>0.00353</td>
             <td>0.00393</td>
             <td>0.00476</td>
-            <td>0.01196</td>
-            <td>0.01410</td>
+            <td>0.0141</td>
             <td>0.00367</td>
             <td>0.00617</td>
             <td>0.00509</td>
-            <td>0.00834</td>
             <td>0.01031</td>
         </tr>
         <tr>
@@ -882,12 +811,10 @@ python benches/bench.py
             <td>0.00678</td>
             <td>0.00748</td>
             <td>0.00904</td>
-            <td>0.02051</td>
-            <td>0.02440</td>
+            <td>0.0244</td>
             <td>0.00749</td>
             <td>0.01348</td>
             <td>0.01014</td>
-            <td>0.01780</td>
             <td>0.02543</td>
         </tr>
         <tr>
@@ -895,12 +822,10 @@ python benches/bench.py
             <td>0.01361</td>
             <td>0.01461</td>
             <td>0.01595</td>
-            <td>0.03323</td>
             <td>0.05064</td>
-            <td>0.01460</td>
+            <td>0.0146</td>
             <td>0.02697</td>
-            <td>0.01920</td>
-            <td>0.03355</td>
+            <td>0.0192</td>
             <td>0.05296</td>
         </tr>
         <tr>
@@ -908,25 +833,21 @@ python benches/bench.py
             <td>0.02923</td>
             <td>0.03027</td>
             <td>0.03343</td>
-            <td>0.06805</td>
             <td>0.10362</td>
             <td>0.03134</td>
-            <td>0.05410</td>
+            <td>0.0541</td>
             <td>0.03558</td>
-            <td>0.06955</td>
-            <td>0.11380</td>
+            <td>0.1138</td>
         </tr>
         <tr>
             <td>256</td>
             <td>0.06348</td>
             <td>0.06188</td>
             <td>0.07303</td>
-            <td>0.13003</td>
             <td>0.20911</td>
             <td>0.06136</td>
             <td>0.10417</td>
             <td>0.07572</td>
-            <td>0.13733</td>
             <td>0.20828</td>
         </tr>
         <tr>
@@ -934,12 +855,10 @@ python benches/bench.py
             <td>0.11782</td>
             <td>0.13463</td>
             <td>0.14283</td>
-            <td>0.26799</td>
             <td>0.41929</td>
-            <td>0.12090</td>
+            <td>0.1209</td>
             <td>0.21114</td>
             <td>0.14434</td>
-            <td>0.25771</td>
             <td>0.41463</td>
         </tr>
         <tr>
@@ -947,12 +866,10 @@ python benches/bench.py
             <td>0.25001</td>
             <td>0.24953</td>
             <td>0.28912</td>
-            <td>0.51228</td>
-            <td>0.82370</td>
+            <td>0.8237</td>
             <td>0.25377</td>
             <td>0.42581</td>
             <td>0.29795</td>
-            <td>0.53807</td>
             <td>0.82588</td>
         </tr>
     </tbody>

@@ -38,7 +38,7 @@ if __name__ == "__main__":
         mlock(plaintext)
         # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
         # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
-        cipher.copy_slice1(plaintext, buf)
+        cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
         print("encryping...")
         ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
