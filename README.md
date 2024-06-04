@@ -24,10 +24,10 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 `Cipher` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
 
 **Encrypt seconds**  
-![Encrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/encrypt.png?raw=true)
+![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt.png?raw=true)
 
 **Decrypt seconds**  
-![Decrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/decrypt.png?raw=true)
+![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt.png?raw=true)
 
 
 **Block size and duration in seconds**
@@ -160,10 +160,10 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 ## File
 
 **Encrypt seconds**  
-![Encrypt file](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/encrypt-file.png?raw=true)
+![Encrypt file](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-file.png?raw=true)
 
  **Decrypt seconds**  
-![Decrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/decrypt-file.png?raw=true)
+![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-file.png?raw=true)
 
 **File size and duration in seconds**
 <table>
@@ -342,7 +342,7 @@ In the examples below you will see how to do it
 
 # Examples
 
-You can see more in [examples](https://github.com/radumarias/Cipher-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/Cipher-python/tree/main/bench.py) which has some benchmarks. Here are few simple examples:
+You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks. Here are few simple examples:
 
 ## Encrypt and decrypt with a buffer in memory
 
@@ -813,7 +813,7 @@ For `encrypt_from1()`/`decrypt_from1()` the only difference is that the input is
 
 ## Browser
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/radumarias/Cipher-python)
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/radumarias/rencrypt-python)
 
 [![Open in Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/?repo=radumarias%2FCipher-python&ref=main)
 
@@ -821,7 +821,7 @@ For `encrypt_from1()`/`decrypt_from1()` the only difference is that the input is
 Skip this if you're starting it in browser.
 
 ```bash
-git clone https://github.com/radumarias/Cipher-python && cd Cipher-python
+git clone https://github.com/radumarias/rencrypt-python && cd Cipher-python
 ```
 
 ## Compile and run
@@ -848,10 +848,10 @@ python bench.py
 ## Different ways to use the lib
 
 **Encrypt**  
-![Encrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/encrypt-all.png?raw=true)
+![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-all.png?raw=true)
 
 **Decrypt**  
- ![Decrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/decrypt-all.png?raw=true)
+ ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-all.png?raw=true)
 
 **Block size and duration in seconds**
 <table>
@@ -1087,7 +1087,7 @@ python bench.py
 `256KB` seems to be the sweet spot for buffer size that offers the max `MB/s` speed for encryption, on benchmarks that seem to be the case.
 We performed `10.000` encryption operations for each size varying from `1KB` to `16MB`.
 
-![Speed throughput](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/speed-throughput.png?raw=true)
+![Speed throughput](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/speed-throughput.png?raw=true)
 
 | MB    | MB/s |
 | ----- | ------- |
