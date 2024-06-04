@@ -22,9 +22,9 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Setup venv
       run: python -m venv .env
-    - if: ${{ startsWith((matrix.runner, "windows" }}
+    - if: ${{ startsWith(matrix.runner, "windows") }}
       run: echo windows
-    - if: ${{ !startsWith((matrix.runner, "windows" }}
+    - if: ${{ !startsWith(matrix.runner, "windows") }}
       run: echo unix      
     # - name: Activate venv
     #   if: ${{ startsWith((matrix.runner, "windows" }}
