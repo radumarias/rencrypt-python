@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        runner: [ubuntu-latest, windows-latest]
+        runner: [ubuntu-latest, windows-latest, macos-latest, macos-14]
         python-version: [3.7, 3.8, 3.9, "3.10"]
     steps:
     - name: Check out repository code
