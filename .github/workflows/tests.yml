@@ -25,7 +25,6 @@ jobs:
 
     - name: Install dependencies
       run: |
-        sudo apt-get update && sudo apt-get install libsodium-dev
         python -m venv .env
         source .env/bin/activate
         python -m pip install --upgrade pip
