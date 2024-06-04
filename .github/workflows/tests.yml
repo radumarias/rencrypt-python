@@ -7,11 +7,11 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  test_unix:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        runner: [ubuntu-latest, windows-latest, macos-latest]
+        runner: [ubuntu-latest, macos-latest]
         python-version: [3.7, 3.8, 3.9, "3.10"]
     steps:
     - name: Check out repository code
@@ -20,14 +20,36 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Setup venv
-      run: python -m venv .env
-    - if: ${{ startsWith(matrix.runner, 'windows') }}
-      run: .env\Scripts\activate
-    - if: ${{ !startsWith(matrix.runner, 'windows') }}
-      run: .env/bin/activate
     - name: Install dependencies
       run: |
+        python -m venv .env
+        .env/bin/activate
+        python -m pip install --upgrade pip
+        pip install maturin
+        maturin develop --release        
+        pip install pytest
+        pip install -r requirements.txt
+    - name: Run tests
+      run: |
+        source .env/bin/activate
+        pytest
+
+  test_windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9, "3.10"]
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v4          
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m venv .env
+        .env\Scripts\activate
         python -m pip install --upgrade pip
         pip install maturin
         maturin develop --release        
