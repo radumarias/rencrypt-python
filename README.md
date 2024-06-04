@@ -1,4 +1,4 @@
-# REncrypt
+# rencrypt
 
 [![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
 [![PyPI](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPI.yml)
