@@ -23,12 +23,10 @@ jobs:
     - name: Install dependencies
       run: |
         python -m venv .env
-        .env/bin/activate
+        source .env/bin/activate
         python -m pip install --upgrade pip
-        pip install maturin
+        pip install -r requirements.txt        
         maturin develop --release        
-        pip install pytest
-        pip install -r requirements.txt
     - name: Run tests
       run: |
         source .env/bin/activate
@@ -51,10 +49,8 @@ jobs:
         python -m venv .env
         .env\Scripts\activate
         python -m pip install --upgrade pip
-        pip install maturin
+        pip install -r requirements.txt        
         maturin develop --release        
-        pip install pytest
-        pip install -r requirements.txt
     - name: Run tests
       run: |
         source .env/bin/activate
