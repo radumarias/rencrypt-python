@@ -308,6 +308,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
+name = "libsodium-sys"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b779387cd56adfbc02ea4a668e704f729be8d6a6abd2c27ca5ee537849a92fd"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+ "walkdir",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -726,6 +738,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f51745a213c4a2acabad80cd511e40376996bc83db6ceb4ebc7853d41c597988"
 dependencies = [
  "libc",
+ "libsodium-sys",
  "pkg-config",
  "vcpkg",
 ]
