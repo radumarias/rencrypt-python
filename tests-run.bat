@@ -1,3 +1,5 @@
+@echo off
+
 pytest
 python examples/encrypt.py
 python examples/encrypt_into.py
