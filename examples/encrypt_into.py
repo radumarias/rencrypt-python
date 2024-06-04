@@ -83,7 +83,6 @@ if __name__ == "__main__":
         zeroize_np(plaintext2)
         zeroize_np(buf)
 
-        unlock_memory(key)
         unlock_memory(buf)
         unlock_memory(plaintext)
         unlock_memory(plaintext2)
