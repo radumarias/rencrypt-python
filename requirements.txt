@@ -1,2 +1,4 @@
-numpy>=1.21.0
-zeroize>=0.1.0
+maturin
+numpy
+zeroize
+pytest

@@ -1,6 +1,6 @@
 use std::io;
 
-trait Encryptor {
+trait Cipher {
     fn encrypt<'a>(plaintext: &'a mut [u8], block_index: Option<u64>, aad: Option<&[u8]>, nonce: Option<&[u8]>,
                    tag_out: &mut [u8], nonce_out: &mut [u8]) -> io::Result<&'a [u8]>;
 

@@ -3,10 +3,37 @@ import io
 import os
 from pathlib import Path
 import shutil
-from rencrypt import REncrypt, Cipher
+from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import hashlib
 from zeroize import zeroize_np
 import numpy as np
+import ctypes
+
+
+# Load the C standard library
+LIBC = ctypes.CDLL("libc.so.6")
+MLOCK = LIBC.mlock
+MUNLOCK = LIBC.munlock
+
+# Define mlock and munlock argument types
+MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+
+
+def lock_memory(buffer):
+    """Locks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MLOCK(address, size) != 0:
+        raise RuntimeError("Failed to lock memory")
+
+
+def unlock_memory(buffer):
+    """Unlocks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MUNLOCK(address, size) != 0:
+        raise RuntimeError("Failed to unlock memory")
 
 
 def read_file_in_chunks(file_path, buf):
@@ -24,11 +51,6 @@ def hash_file(file_path):
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_algo.update(chunk)
-    return hash_algo.hexdigest()
-
-def hash(bytes_in):
-    hash_algo = hashlib.sha256()
-    hash_algo.update(bytes_in)
     return hash_algo.hexdigest()
 
 
@@ -74,53 +96,64 @@ def delete_dir(path):
         print(f"Directory {path} does not exist.")
 
 
-tmp_dir = create_directory_in_home("rencrypt_tmp")
-fin = tmp_dir + "/" + "fin"
-fout = tmp_dir + "/" + "fout.enc"
-create_file_with_size(fin, 10 * 1024 * 1024)
+if __name__ == "__main__":
+    try:
+        tmp_dir = create_directory_in_home("Cipher_tmp")
+        fin = tmp_dir + "/" + "fin"
+        fout = tmp_dir + "/" + "fout.enc"
+        create_file_with_size(fin, 10 * 1024 * 1024)
 
-chunk_len = 256 * 1024
+        chunk_len = 256 * 1024
 
-cipher = Cipher.AES256GCM
-key = cipher.generate_key()
-# The key is copied and the input key is zeroized for security reasons.
-# The copied key will also be zeroized when the object is dropped.
-enc = REncrypt(cipher, key)
-plaintext_len = chunk_len;
-ciphertext_len = enc.ciphertext_len(plaintext_len)
-buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        lock_memory(key)
+        cipher_meta.generate_key(key)
+        # The key is copied and the input key is zeroized for security reasons.
+        # The copied key will also be zeroized when the object is dropped.
+        cipher = Cipher(cipher_meta, key)
+        # it was zeroized we can unlock it
+        unlock_memory(key)
 
-aad = b"AAD"
+        plaintext_len = chunk_len
+        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
-# encrypt
-print("encryping...")
-h1 = bytes(32)
-with open(fout, "wb", buffering=plaintext_len) as file_out:
-    i = 0
-    for read in read_file_in_chunks(fin, buf[:plaintext_len]):
-        h1 = hash(buf[:read])
-        ciphertext_len = enc.encrypt(buf, read, i, aad)
-        file_out.write(buf[:ciphertext_len])
-        i += 1
-    file_out.flush()
+        aad = b"AAD"
 
-# decrypt
-print("decryping...")
-tmp = fout + ".dec"
-h2 = bytes(32)
-with open(tmp, "wb", buffering=plaintext_len) as file_out:
-    i = 0
-    for read in read_file_in_chunks(fout, buf):
-        plaintext_len2 = enc.decrypt(buf, read, i, aad)
-        h2 = hash(buf[:plaintext_len2])
-        file_out.write(buf[:plaintext_len2])
-        i += 1
-    file_out.flush()
+        # encrypt
+        print("encryping...")
+        with open(fout, "wb", buffering=plaintext_len) as file_out:
+            i = 0
+            for read in read_file_in_chunks(fin, buf[:plaintext_len]):
+                ciphertext_len = cipher.encrypt(buf, read, i, aad)
+                file_out.write(buf[:ciphertext_len])
+                i += 1
+            file_out.flush()
 
-assert compare_files_by_hash(fin, tmp)
+        # decrypt
+        print("decryping...")
+        tmp = fout + ".dec"
+        with open(tmp, "wb", buffering=plaintext_len) as file_out:
+            i = 0
+            for read in read_file_in_chunks(fout, buf):
+                plaintext_len2 = cipher.decrypt(buf, read, i, aad)
+                file_out.write(buf[:plaintext_len2])
+                i += 1
+            file_out.flush()
 
-delete_dir(tmp_dir)
-# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
-zeroize_np(buf)
+        assert compare_files_by_hash(fin, tmp)
 
-print("bye!")
+        delete_dir(tmp_dir)
+
+    finally:
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+        # buf will containt the last block plaintext so we need to zeroize it
+        zeroize_np(buf)
+
+        unlock_memory(buf)
+
+    print("bye!")

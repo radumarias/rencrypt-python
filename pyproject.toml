@@ -3,7 +3,7 @@ requires = ["maturin>=1.5,<2.0", "zeroing>=0.1.0", "numpy>=1.20.0"]
 build-backend = "maturin"
 
 [project]
-name = "rencrypt"
+name = "Cipher"
 authors = [
   { name="Radu Marias", email="radumarias@gmail.com" },
 ]
@@ -22,5 +22,5 @@ dynamic = ["version"]
 features = ["pyo3/extension-module"]
 
 [project.urls]
-Homepage = "https://github.com/radumarias/rencrypt-python"
-Issues = "https://github.com/radumarias/rencrypt-python/issues"
+Homepage = "https://github.com/radumarias/Cipher-python"
+Issues = "https://github.com/radumarias/Cipher-python/issues"

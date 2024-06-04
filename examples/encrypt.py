@@ -1,50 +1,97 @@
 # This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
-from rencrypt import REncrypt, Cipher
+from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1
 from zeroize import zeroize_np
 import numpy as np
+import ctypes
 
 
-# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.AES256GCM
-key = cipher.generate_key()
-# The key is copied and the input key is zeroized for security reasons.
-# The copied key will also be zeroized when the object is dropped.
-enc = REncrypt(cipher, key)
+# Load the C standard library
+LIBC = ctypes.CDLL("libc.so.6")
+MLOCK = LIBC.mlock
+MUNLOCK = LIBC.munlock
 
-# we create a buffer based on plaintext block len of 4096
-# the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
-plaintext_len = 4096
-ciphertext_len = enc.ciphertext_len(plaintext_len)
-buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+# Define mlock and munlock argument types
+MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
 
-aad = b"AAD"
 
-# put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
-# but for the sake of example we will allocate and copy the data
-plaintext = bytearray(os.urandom(plaintext_len))
-# enc.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
-# enc.copy_slice takes bytes as input, enc.copy_slice1 takes bytearray
-enc.copy_slice1(plaintext, buf)
-# encrypt it, this will encrypt in-place the data in the buffer
-print("encryping...")
-ciphertext_len = enc.encrypt(buf, plaintext_len, 42, aad)
-cipertext = buf[:ciphertext_len]
-# you can do something with the ciphertext
+def lock_memory(buffer):
+    """Locks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MLOCK(address, size) != 0:
+        raise RuntimeError("Failed to lock memory")
 
-# decrypt it
-# if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
-# enc.copy_slice(ciphertext, buf[:len(ciphertext)])
-print("decryping...")
-plaintext_len = enc.decrypt(buf, ciphertext_len, 42, aad)
-plaintext2 = buf[:plaintext_len]
-assert plaintext == plaintext2
 
-# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
-zeroize1(plaintext)
-zeroize_np(plaintext2)
-zeroize_np(buf)
+def unlock_memory(buffer):
+    """Unlocks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MUNLOCK(address, size) != 0:
+        raise RuntimeError("Failed to unlock memory")
 
-print("bye!")
+
+if __name__ == "__main__":
+    try:
+        # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        lock_memory(key)
+        cipher_meta.generate_key(key)
+        # The key is copied and the input key is zeroized for security reasons.
+        # The copied key will also be zeroized when the object is dropped.
+        cipher = Cipher(cipher_meta, key)
+        # it was zeroized we can unlock it
+        unlock_memory(key)
+
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
+        lock_memory(buf)
+
+        aad = b"AAD"
+
+        # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
+        # but for the sake of example we will allocate and copy the data
+        plaintext = bytearray(os.urandom(plaintext_len))
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        lock_memory(plaintext)
+        # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
+        # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
+        cipher.copy_slice1(plaintext, buf)
+        # encrypt it, this will encrypt in-place the data in the buffer
+        print("encryping...")
+        ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
+        cipertext = buf[:ciphertext_len]
+        # you can do something with the ciphertext
+
+        # decrypt it
+        # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
+        # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
+        print("decryping...")
+        plaintext_len = cipher.decrypt(buf, ciphertext_len, 42, aad)
+        plaintext2 = buf[:plaintext_len]
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        lock_memory(plaintext2)
+        assert plaintext == plaintext2
+
+    finally:
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+        zeroize1(plaintext)
+        zeroize_np(plaintext2)
+        zeroize_np(buf)
+        
+        unlock_memory(key)
+        unlock_memory(buf)
+        unlock_memory(plaintext)
+        unlock_memory(plaintext2)
+
+        print("bye!")

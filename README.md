@@ -1,7 +1,7 @@
-# REncrypt
+# Cipher
 
-[![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
-[![PyPy](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPy.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPy.yml)
+[![PyPI version](https://badge.fury.io/py/Cipher.svg)](https://badge.fury.io/py/Cipher)
+[![PyPy](https://github.com/radumarias/Cipher-python/actions/workflows/PyPy.yml/badge.svg)](https://github.com/radumarias/Cipher-python/actions/workflows/PyPy.yml)
 
 > ⚠️ **Warning**  
 > ***This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle it should offer as similar level of security.  
@@ -20,13 +20,13 @@ Some benchmarks comparing it to [PyFLocker](https://github.com/arunanshub/pyfloc
 ## Buffer in memory
 
 This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
-`REncrypt` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
+`Cipher` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
 
 **Encrypt seconds**  
-![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt.png?raw=true)
+![Encrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/encrypt.png?raw=true)
 
 **Decrypt seconds**  
-![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt.png?raw=true)
+![Decrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/decrypt.png?raw=true)
 
 
 **Block size and duration in seconds**
@@ -34,9 +34,9 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
     <thead>
         <tr>
             <th>MB</th>
-            <th>REncrypt<br>encrypt</th>
+            <th>Cipher<br>encrypt</th>
             <th>PyFLocker<br>encrypt</th>
-            <th>REncrypt<br>decrypt</th>
+            <th>Cipher<br>decrypt</th>
             <th>PyFLocker<br>decrypt</th>
         </tr>
     </thead>
@@ -159,19 +159,19 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 ## File
 
 **Encrypt seconds**  
-![Encrypt file](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-file.png?raw=true)
+![Encrypt file](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/encrypt-file.png?raw=true)
 
  **Decrypt seconds**  
-![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-file.png?raw=true)
+![Decrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/decrypt-file.png?raw=true)
 
 **File size and duration in seconds**
 <table>
     <thead>
         <tr>
             <th>MB</th>
-            <th>REncrypt<br>encrypt</th>
+            <th>Cipher<br>encrypt</th>
             <th>PyFLocker<br>encrypt</th>
-            <th>REncrypt<br>decrypt</th>
+            <th>Cipher<br>decrypt</th>
             <th>PyFLocker<br>decrypt</th>
         </tr>
         </tr>
@@ -330,9 +330,18 @@ If you can directly collect the data to that buffer, like `BufferedReader.read_i
 2. **From some bytes into the buffer**: using `encrypt_into()`/`decrypt_into()`, when you have some arbitrary `bytes` that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in buffer. This is a bit slower, especially for large data, because it needs to copy the bytes to the buffer.
 3. **From some bytes to another new bytes**: using `encrypt_from()`/`decrypt_from()`, it doesn't use the buffer at all, you just got some bytes you want to work with and you receive back another new bytes. This is the slowest one because it needs to first allocate a buffer, copy the data to the buffer, perform the operation then return that buffer as bytes. It's the easiest to use but is not so performant.
 
+## Encryption provider
+
+You will notice in the examples we initiate the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)`. The first part `CipherMeta.Ring` is the encryption provider, for now it's only one but in the future we will add more. The last part is the algorithm for that provider, in this case `AES256GCM`. Each provier might expose specific algorithms.
+
+# Security
+
+**For security reasons it's a good practice to lock the memory with `mlock()` in which you keep sensitive data like passwords or encrryption keys, or any other plaintext sensitive content.**  
+In the examples below you will see how to do it
+
 # Examples
 
-You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks. Here are few simple examples:
+You can see more in [examples](https://github.com/radumarias/Cipher-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/Cipher-python/tree/main/bench.py) which has some benchmarks. Here are few simple examples:
 
 ## Encrypt and decrypt with a buffer in memory
 
@@ -341,48 +350,100 @@ You can see more in [examples](https://github.com/radumarias/rencrypt-python/tre
 This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
 ```python
-from rencrypt import REncrypt, Cipher
+from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1
+from zeroize import zeroize_np
+import numpy as np
+import ctypes
 
 
-# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.AES256GCM
-key = cipher.generate_key()
-# The key is copied and the input key is zeroized for security reasons.
-# The copied key will also be zeroized when the object is dropped.
-enc = REncrypt(cipher, key)
+# Load the C standard library
+LIBC = ctypes.CDLL("libc.so.6")
+MLOCK = LIBC.mlock
+MUNLOCK = LIBC.munlock
 
-# we get a buffer based on block len 4096 plaintext
-# the actual buffer will be 28 bytes larger as in ciphertext we also include the tag and nonce
-plaintext_len, ciphertext_len, buf = enc.create_buf(4096)
-aad = b"AAD"
+# Define mlock and munlock argument types
+MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
 
-# put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
-# but for the sake of example we will allocate and copy the data
-plaintext = bytearray(os.urandom(plaintext_len))
-# enc.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
-# enc.copy_slice takes bytes as input, enc.copy_slice1 takes bytearray
-enc.copy_slice1(plaintext, buf)
-# encrypt it, this will encrypt in-place the data in the buffer
-print("encryping...")
-ciphertext_len = enc.encrypt(buf, plaintext_len, 42, aad)
-cipertext = buf[:ciphertext_len]
-# you can do something with the ciphertext
 
-# decrypt it
-# if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
-# enc.copy_slice(ciphertext, buf[:len(ciphertext)])
-print("decryping...")
-plaintext_len = enc.decrypt(buf, ciphertext_len, 42, aad)
-plaintext2 = buf[:plaintext_len]
-assert plaintext == plaintext2
+def lock_memory(buffer):
+    """Locks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MLOCK(address, size) != 0:
+        raise RuntimeError("Failed to lock memory")
 
-# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
-zeroize1(plaintext)
-zeroize1(plaintext2)
 
-print("bye!")
+def unlock_memory(buffer):
+    """Unlocks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MUNLOCK(address, size) != 0:
+        raise RuntimeError("Failed to unlock memory")
+
+
+if __name__ == "__main__":
+    try:
+        # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        lock_memory(key)
+        cipher_meta.generate_key(key)
+        # The key is copied and the input key is zeroized for security reasons.
+        # The copied key will also be zeroized when the object is dropped.
+        cipher = Cipher(cipher_meta, key)
+        # it was zeroized we can unlock it
+        unlock_memory(key)
+
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
+        lock_memory(buf)
+
+        aad = b"AAD"
+
+        # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
+        # but for the sake of example we will allocate and copy the data
+        plaintext = bytearray(os.urandom(plaintext_len))
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        lock_memory(plaintext)
+        # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
+        # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
+        cipher.copy_slice1(plaintext, buf)
+        # encrypt it, this will encrypt in-place the data in the buffer
+        print("encryping...")
+        ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
+        cipertext = buf[:ciphertext_len]
+        # you can do something with the ciphertext
+
+        # decrypt it
+        # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
+        # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
+        print("decryping...")
+        plaintext_len = cipher.decrypt(buf, ciphertext_len, 42, aad)
+        plaintext2 = buf[:plaintext_len]
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        lock_memory(plaintext2)
+        assert plaintext == plaintext2
+
+    finally:
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+        zeroize1(plaintext)
+        zeroize_np(plaintext2)
+        zeroize_np(buf)
+
+        unlock_memory(buf)
+        unlock_memory(plaintext)
+        unlock_memory(plaintext2)
+
+        print("bye!")
 ```
 
 You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
@@ -395,10 +456,37 @@ import io
 import os
 from pathlib import Path
 import shutil
-from rencrypt import REncrypt, Cipher
+from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import hashlib
 from zeroize import zeroize_np
 import numpy as np
+import ctypes
+
+
+# Load the C standard library
+LIBC = ctypes.CDLL("libc.so.6")
+MLOCK = LIBC.mlock
+MUNLOCK = LIBC.munlock
+
+# Define mlock and munlock argument types
+MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+
+
+def lock_memory(buffer):
+    """Locks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MLOCK(address, size) != 0:
+        raise RuntimeError("Failed to lock memory")
+
+
+def unlock_memory(buffer):
+    """Unlocks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MUNLOCK(address, size) != 0:
+        raise RuntimeError("Failed to unlock memory")
 
 
 def read_file_in_chunks(file_path, buf):
@@ -417,6 +505,7 @@ def hash_file(file_path):
         for chunk in iter(lambda: f.read(4096), b""):
             hash_algo.update(chunk)
     return hash_algo.hexdigest()
+
 
 def hash(bytes_in):
     hash_algo = hashlib.sha256()
@@ -466,56 +555,67 @@ def delete_dir(path):
         print(f"Directory {path} does not exist.")
 
 
-tmp_dir = create_directory_in_home("rencrypt_tmp")
-fin = tmp_dir + "/" + "fin"
-fout = tmp_dir + "/" + "fout.enc"
-create_file_with_size(fin, 10 * 1024 * 1024)
+if __name__ == "__main__":
+    try:
+        tmp_dir = create_directory_in_home("Cipher_tmp")
+        fin = tmp_dir + "/" + "fin"
+        fout = tmp_dir + "/" + "fout.enc"
+        create_file_with_size(fin, 10 * 1024 * 1024)
 
-chunk_len = 256 * 1024
+        chunk_len = 256 * 1024
 
-cipher = Cipher.AES256GCM
-key = cipher.generate_key()
-# The key is copied and the input key is zeroized for security reasons.
-# The copied key will also be zeroized when the object is dropped.
-enc = REncrypt(cipher, key)
-plaintext_len = chunk_len;
-ciphertext_len = enc.ciphertext_len(plaintext_len)
-buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        lock_memory(key)
+        cipher_meta.generate_key(key)
+        # The key is copied and the input key is zeroized for security reasons.
+        # The copied key will also be zeroized when the object is dropped.
+        cipher = Cipher(cipher_meta, key)
+        # it was zeroized we can unlock it
+        unlock_memory(key)
+        
+        plaintext_len = chunk_len
+        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
-aad = b"AAD"
+        aad = b"AAD"
 
-# encrypt
-print("encryping...")
-h1 = bytes(32)
-with open(fout, "wb", buffering=plaintext_len) as file_out:
-    i = 0
-    for read in read_file_in_chunks(fin, buf[:plaintext_len]):
-        h1 = hash(buf[:read])
-        ciphertext_len = enc.encrypt(buf, read, i, aad)
-        file_out.write(buf[:ciphertext_len])
-        i += 1
-    file_out.flush()
+        # encrypt
+        print("encryping...")
+        with open(fout, "wb", buffering=plaintext_len) as file_out:
+            i = 0
+            for read in read_file_in_chunks(fin, buf[:plaintext_len]):
+                ciphertext_len = cipher.encrypt(buf, read, i, aad)
+                file_out.write(buf[:ciphertext_len])
+                i += 1
+            file_out.flush()
 
-# decrypt
-print("decryping...")
-tmp = fout + ".dec"
-h2 = bytes(32)
-with open(tmp, "wb", buffering=plaintext_len) as file_out:
-    i = 0
-    for read in read_file_in_chunks(fout, buf):
-        plaintext_len2 = enc.decrypt(buf, read, i, aad)
-        h2 = hash(buf[:plaintext_len2])
-        file_out.write(buf[:plaintext_len2])
-        i += 1
-    file_out.flush()
+        # decrypt
+        print("decryping...")
+        tmp = fout + ".dec"
+        with open(tmp, "wb", buffering=plaintext_len) as file_out:
+            i = 0
+            for read in read_file_in_chunks(fout, buf):
+                plaintext_len2 = cipher.decrypt(buf, read, i, aad)
+                file_out.write(buf[:plaintext_len2])
+                i += 1
+            file_out.flush()
 
-assert compare_files_by_hash(fin, tmp)
+        assert compare_files_by_hash(fin, tmp)
 
-delete_dir(tmp_dir)
-# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
-zeroize_np(buf)
+        delete_dir(tmp_dir)
 
-print("bye!")
+    finally:
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+        # buf will containt the last block plaintext so we need to zeroize it
+        zeroize_np(buf)
+
+        unlock_memory(buf)
+        
+    print("bye!")
 ```
 
 ## Encrypt and decrypt from some bytes into the buffer
@@ -527,47 +627,94 @@ This is a bit slower than handling data only via the buffer, especially for larg
 For `encrypt_into()`/`decrypt_into()` the plaintext is `bytes`.
 
 ```python
-from rencrypt import REncrypt, Cipher
+from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1
 from zeroize import zeroize_np
 import numpy as np
+import ctypes
 
 
-# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.AES256GCM
-key = cipher.generate_key()
-# The key is copied and the input key is zeroized for security reasons.
-# The copied key will also be zeroized when the object is dropped.
-enc = REncrypt(cipher, key)
+# Load the C standard library
+LIBC = ctypes.CDLL("libc.so.6")
+MLOCK = LIBC.mlock
+MUNLOCK = LIBC.munlock
 
-# we create a buffer based on plaintext block len of 4096
-# the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
-plaintext_len = 4096
-ciphertext_len = enc.ciphertext_len(plaintext_len)
-buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+# Define mlock and munlock argument types
+MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
 
-aad = b"AAD"
 
-plaintext = bytearray(os.urandom(plaintext_len))
+def lock_memory(buffer):
+    """Locks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MLOCK(address, size) != 0:
+        raise RuntimeError("Failed to lock memory")
 
- # encrypt it, after this will have the ciphertext in the buffer
-print("encryping...")
-ciphertext_len = enc.encrypt_into1(plaintext, buf, 42, aad)
-cipertext = bytes(buf[:ciphertext_len])
 
-# decrypt it
-print("decryping...")
-plaintext_len = enc.decrypt_into(cipertext, buf, 42, aad)
-plaintext2 = buf[:plaintext_len]
-assert plaintext == plaintext2
+def unlock_memory(buffer):
+    """Unlocks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MUNLOCK(address, size) != 0:
+        raise RuntimeError("Failed to unlock memory")
 
-# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
-zeroize1(plaintext)
-zeroize_np(plaintext2)
-zeroize_np(buf)
 
-print("bye!")
+if __name__ == "__main__":
+    try:
+        # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        lock_memory(key)
+        cipher_meta.generate_key(key)
+        # The key is copied and the input key is zeroized for security reasons.
+        # The copied key will also be zeroized when the object is dropped.
+        cipher = Cipher(cipher_meta, key)
+        # it was zeroized we can unlock it
+        unlock_memory(key)
+
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
+        lock_memory(buf)
+
+        aad = b"AAD"
+
+        plaintext = bytearray(os.urandom(plaintext_len))
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        lock_memory(plaintext)
+
+        # encrypt it, after this will have the ciphertext in the buffer
+        print("encryping...")
+        ciphertext_len = cipher.encrypt_into1(plaintext, buf, 42, aad)
+        cipertext = bytes(buf[:ciphertext_len])
+
+        # decrypt it
+        print("decryping...")
+        plaintext_len = cipher.decrypt_into(cipertext, buf, 42, aad)
+        plaintext2 = buf[:plaintext_len]
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        lock_memory(plaintext2)
+        assert plaintext == plaintext2
+
+    finally:
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+        zeroize1(plaintext)
+        zeroize_np(plaintext2)
+        zeroize_np(buf)
+
+        unlock_memory(key)
+        unlock_memory(buf)
+        unlock_memory(plaintext)
+        unlock_memory(plaintext2)
+
+        print("bye!")
 ```
 
 For `encrypt_into1()`/`decrypt_into1()` the only difference is that the input is `bytearray`.
@@ -582,36 +729,81 @@ This is the slowest option, especially for large plaintext, because it allocates
 For `encrypt_from()`/`decrypt_from()` the plaintext is `bytes`.
 
 ```python
-from rencrypt import REncrypt, Cipher
+# This is the slowest option, especially for large plaintext, because it allocates new memory for the ciphertext on encrypt and plaintext on decrypt.
+
+from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1
+import ctypes
 
 
-# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.# You can use also other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
-cipher = Cipher.AES256GCM
-key = cipher.generate_key()
-# The key is copied and the input key is zeroized for security reasons.
-# The copied key will also be zeroized when the object is dropped.
-enc = REncrypt(cipher, key)
+# Load the C standard library
+LIBC = ctypes.CDLL("libc.so.6")
+MLOCK = LIBC.mlock
+MUNLOCK = LIBC.munlock
 
-aad = b"AAD"
+# Define mlock and munlock argument types
+MLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+MUNLOCK.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
 
-plaintext = bytearray(os.urandom(4096))
 
- # encrypt it, this will return the ciphertext
-print("encryping...")
-ciphertext = enc.encrypt_from1(plaintext, 42, aad)
+def lock_memory(buffer):
+    """Locks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MLOCK(address, size) != 0:
+        raise RuntimeError("Failed to lock memory")
 
-# decrypt it
-print("decryping...")
-plaintext2 = enc.decrypt_from1(ciphertext, 42, aad)
-assert plaintext == plaintext2
 
-# best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
-zeroize1(plaintext)
-zeroize1(plaintext2)
+def unlock_memory(buffer):
+    """Unlocks the memory of the given buffer."""
+    address = ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+    size = len(buffer)
+    if MUNLOCK(address, size) != 0:
+        raise RuntimeError("Failed to unlock memory")
 
-print("bye!")
+
+if __name__ == "__main__":
+    try:
+        # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        lock_memory(key)
+        cipher_meta.generate_key(key)
+        # The key is copied and the input key is zeroized for security reasons.
+        # The copied key will also be zeroized when the object is dropped.
+        cipher = Cipher(cipher_meta, key)
+        # it was zeroized we can unlock it
+        unlock_memory(key)
+
+        aad = b"AAD"
+
+        plaintext = bytearray(os.urandom(4096))
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        lock_memory(plaintext)
+
+        # encrypt it, this will return the ciphertext
+        print("encryping...")
+        ciphertext = cipher.encrypt_from1(plaintext, 42, aad)
+
+        # decrypt it
+        print("decryping...")
+        plaintext2 = cipher.decrypt_from1(ciphertext, 42, aad)
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        lock_memory(plaintext2)
+        assert plaintext == plaintext2
+
+    finally:
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+        zeroize1(plaintext)
+        zeroize1(plaintext2)
+
+        unlock_memory(plaintext)
+        unlock_memory(plaintext2)
+
+        print("bye!")
 ```
 
 For `encrypt_from1()`/`decrypt_from1()` the only difference is that the input is `bytearray`.
@@ -620,15 +812,15 @@ For `encrypt_from1()`/`decrypt_from1()` the only difference is that the input is
 
 ## Browser
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/radumarias/rencrypt-python)
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/radumarias/Cipher-python)
 
-[![Open in Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/?repo=radumarias%2Frencrypt-python&ref=main)
+[![Open in Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/?repo=radumarias%2FCipher-python&ref=main)
 
 ## Geting sources from GitHub
 Skip this if you're starting it in browser.
 
 ```bash
-git clone https://github.com/radumarias/rencrypt-python && cd rencrypt-python
+git clone https://github.com/radumarias/Cipher-python && cd Cipher-python
 ```
 
 ## Compile and run
@@ -645,9 +837,7 @@ This is usually done by running one of the following (note the leading DOT):
 ```
 python -m venv .env
 source .env/bin/activate
-pip install maturin
-pip install zeroize
-pip install numpy
+pip install -r requirements.txt
 maturin develop
 python bench.py
 ```
@@ -657,25 +847,25 @@ python bench.py
 ## Different ways to use the lib
 
 **Encrypt**  
-![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-all.png?raw=true)
+![Encrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/encrypt-all.png?raw=true)
 
 **Decrypt**  
- ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-all.png?raw=true)
+ ![Decrypt buffer](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/decrypt-all.png?raw=true)
 
 **Block size and duration in seconds**
 <table>
     <thead>
         <tr>
             <th>MB</th>
-            <th>REncrypt<br>encrypt</th>
+            <th>Cipher<br>encrypt</th>
             <th>PyFLocker<br>encrypt update_into</th>
-            <th>REncrypt<br>encrypt_into</th>
-            <th>REncrypt<br>encrypt_from</th>
+            <th>Cipher<br>encrypt_into</th>
+            <th>Cipher<br>encrypt_from</th>
             <th>PyFLocker<br>encrypt update</th>
-            <th>REncrypt<br>decrypt</th>
+            <th>Cipher<br>decrypt</th>
             <th>PyFLocker<br>decrypt update_into</th>
-            <th>REncrypt<br>decrypt_into</th>
-            <th>REncrypt<br>decrypt_from</th>
+            <th>Cipher<br>decrypt_into</th>
+            <th>Cipher<br>decrypt_from</th>
             <th>PyFLocker<br>decrypt update</th>
         </tr>
     </thead>
@@ -896,7 +1086,7 @@ python bench.py
 `256KB` seems to be the sweet spot for buffer size that offers the max `MB/s` speed for encryption, on benchmarks that seem to be the case.
 We performed `10.000` encryption operations for each size varying from `1KB` to `16MB`.
 
-![Speed throughput](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/speed-throughput.png?raw=true)
+![Speed throughput](https://github.com/radumarias/Cipher-python/blob/main/resources/charts/speed-throughput.png?raw=true)
 
 | MB    | MB/s |
 | ----- | ------- |

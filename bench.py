@@ -1,11 +1,18 @@
 import datetime
 import errno
 import os
-from rencrypt import REncrypt, Cipher
+from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import hashlib
 from pathlib import Path
 import shutil
 import io
+import numpy as np
+
+
+def hash(bytes_in):
+    hash_algo = hashlib.sha256()
+    hash_algo.update(bytes_in)
+    return hash_algo.hexdigest()
 
 
 def read_file_in_chunks(file_path, buf):
@@ -90,21 +97,24 @@ def silentremove(filename):
 
 
 def encrypt(block_len):
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
 
-    plaintext_len, _, buf = enc.create_buf(block_len)
+    plaintext_len = block_len
+    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+    plaintext = os.urandom(plaintext_len)
+    cipher.copy_slice(plaintext, buf[:plaintext_len])
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
-        plaintext = os.urandom(block_len)
-        enc.copy_slice(plaintext, buf[: len(plaintext)])
-
         a = datetime.datetime.now()
 
-        enc.encrypt(buf, plaintext_len, i, aad)
+        cipher.encrypt(buf, plaintext_len, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -114,46 +124,24 @@ def encrypt(block_len):
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
 
-def encrypt_speed_per_mb(block_len):
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
-
-    plaintext_len, _, buf = enc.create_buf(block_len)
-    aad = b"AAD"
-
-    deltas = []
-    for i in range(1000):
-        plaintext = os.urandom(block_len)
-        enc.copy_slice(plaintext, buf[: len(plaintext)])
-
-        a = datetime.datetime.now()
-
-        enc.encrypt(buf, plaintext_len, i, aad)
-
-        b = datetime.datetime.now()
-        delta = b - a
-        deltas.append(delta.total_seconds())
-
-    average = sum(deltas, 0) / len(deltas)
-    print(f"| {block_len/1024/1024} | {block_len/1024/1024/average} |")
-
-
 def encrypt_into(block_len):
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
 
-    plaintext_len, _, buf = enc.create_buf(block_len)
+    plaintext_len = block_len
+    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+    plaintext = os.urandom(plaintext_len)
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
-        plaintext = os.urandom(plaintext_len)
-
         a = datetime.datetime.now()
 
-        enc.encrypt_into(plaintext, buf, i, aad)
+        cipher.encrypt_into(plaintext, buf, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -164,19 +152,20 @@ def encrypt_into(block_len):
 
 
 def encrypt_from(block_len):
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
 
+    plaintext = os.urandom(block_len)
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
-        plaintext = os.urandom(block_len)
-
         a = datetime.datetime.now()
 
-        enc.encrypt_from(plaintext, i, aad)
+        cipher.encrypt_from(plaintext, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -186,41 +175,20 @@ def encrypt_from(block_len):
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
 
-def encrypt_file2(path_in, path_out):
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
-
-    aad = b"AAD"
-
-    deltas = []
-    for _ in range(3):
-        silentremove(path_out)
-
-        a = datetime.datetime.now()
-
-        enc.encrypt_file(path_in, path_out, aad)
-
-        b = datetime.datetime.now()
-        delta = b - a
-        deltas.append(delta.total_seconds())
-
-    silentremove(path_out)
-
-    average = sum(deltas, 0) / len(deltas)
-    filesize = get_file_size(path_in)
-    print(f"| {(filesize / 1024 / 1024):.5g} | {average:.5f} |")
-
-
 def encrypt_file(path_in, path_out):
     chunk_len = 256 * 1024
 
     key = os.urandom(32)
 
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
-    plaintext_len, _, buf = enc.create_buf(chunk_len)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
+
+    plaintext_len = chunk_len
+    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
     aad = b"AAD"
 
@@ -233,7 +201,7 @@ def encrypt_file(path_in, path_out):
         with open(path_out, "wb", buffering=chunk_len + 28) as file_out:
             i = 0
             for read in read_file_in_chunks(path_in, buf[:plaintext_len]):
-                ciphertext_len = enc.encrypt(buf, read, i, aad)
+                ciphertext_len = cipher.encrypt(buf, read, i, aad)
                 file_out.write(buf[:ciphertext_len])
                 i += 1
             file_out.flush()
@@ -250,99 +218,117 @@ def encrypt_file(path_in, path_out):
 
 
 def decrypt(block_len):
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
 
-    plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
+    plaintext_len = block_len
+    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
     plaintext = os.urandom(plaintext_len)
+    cipher.copy_slice(plaintext, buf[:plaintext_len])
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
-        buf[:plaintext_len] = plaintext
-        ciphertext_len = enc.encrypt(buf, plaintext_len, i, aad)
+        cipher.copy_slice(plaintext, buf[:plaintext_len])
+        ciphertext_len = cipher.encrypt(buf, plaintext_len, i, aad)
 
         a = datetime.datetime.now()
 
-        plaintext_len = enc.decrypt(buf, ciphertext_len, i, aad)
+        plaintext_len = cipher.decrypt(buf, ciphertext_len, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
         deltas.append(delta.total_seconds())
 
-        assert buf[:plaintext_len] == plaintext
+        assert hash(plaintext) == hash(buf[:plaintext_len])
 
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
 
 def decrypt_into(block_len):
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
 
-    plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
+    plaintext_len = block_len
+    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+
     plaintext = os.urandom(plaintext_len)
     aad = b"AAD"
 
     deltas = []
     for i in range(3):
-        buf[:plaintext_len] = plaintext
-        ciphertext_len = enc.encrypt(buf, plaintext_len, i, aad)
+        cipher.copy_slice(plaintext, buf[:plaintext_len])
+        ciphertext_len = cipher.encrypt(buf, plaintext_len, i, aad)
         ciphertext = bytes(buf[:ciphertext_len])
 
         a = datetime.datetime.now()
 
-        plaintext_len = enc.decrypt_into(ciphertext, buf, i, aad)
+        plaintext_len = cipher.decrypt_into(ciphertext, buf, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
         deltas.append(delta.total_seconds())
 
-        assert buf[:plaintext_len] == plaintext
+        assert hash(plaintext) == hash(buf[:plaintext_len])
 
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
 
 def decrypt_from(block_len):
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
 
-    plaintext_len, ciphertext_len, buf = enc.create_buf(block_len)
+    plaintext_len = block_len
+    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
     plaintext = os.urandom(plaintext_len)
     aad = b"AAD"
 
-    buf[:plaintext_len] = plaintext
-    ciphertext_len = enc.encrypt(buf, plaintext_len, 0, aad)
+    cipher.copy_slice(plaintext, buf[:plaintext_len])
+    ciphertext_len = cipher.encrypt(buf, plaintext_len, 0, aad)
     ciphertext = bytes(buf[:ciphertext_len])
 
     deltas = []
     for _ in range(3):
         a = datetime.datetime.now()
 
-        plaintext2 = enc.decrypt_from(ciphertext, 0, aad)
+        plaintext2 = cipher.decrypt_from(ciphertext, 0, aad)
 
         b = datetime.datetime.now()
         delta = b - a
         deltas.append(delta.total_seconds())
 
-        assert plaintext2 == plaintext
+        assert hash(plaintext) == hash(plaintext2)
 
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
 
 def decrypt_file(plaintext_file, ciphertext_file):
-    key = os.urandom(32)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
 
-    cipher = Cipher.AES256GCM
-    key = cipher.generate_key()
-    enc = REncrypt(cipher, key)
     chunk_len = 256 * 1024
-    plaintext_len, _, buf = enc.create_buf(chunk_len)
+
+    plaintext_len = chunk_len
+    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
     aad = b"AAD"
 
@@ -353,7 +339,7 @@ def decrypt_file(plaintext_file, ciphertext_file):
     with open(ciphertext_file, "wb", buffering=plaintext_len) as file_out:
         i = 0
         for read in read_file_in_chunks(plaintext_file, buf[:plaintext_len]):
-            ciphertext_len = enc.encrypt(buf, read, i, aad)
+            ciphertext_len = cipher.encrypt(buf, read, i, aad)
             file_out.write(buf[:ciphertext_len])
             i += 1
         file_out.flush()
@@ -367,7 +353,7 @@ def decrypt_file(plaintext_file, ciphertext_file):
         with open(tmp, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(ciphertext_file, buf):
-                plaintext_len2 = enc.decrypt(buf, read, i, aad)
+                plaintext_len2 = cipher.decrypt(buf, read, i, aad)
                 file_out.write(buf[:plaintext_len2])
                 i += 1
             file_out.flush()
@@ -412,7 +398,36 @@ def copy_file(fin, fout):
     print(f"| {(filesize / 1024 / 1024):.5g} | {average:.5f} |")
 
 
-tmp_dir = create_directory_in_home("rencrypt_tmp")
+def encrypt_speed_per_mb(block_len):
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    cipher_meta.generate_key(key)
+    cipher = Cipher(cipher_meta, key)
+
+    plaintext_len = block_len
+    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+    plaintext = os.urandom(plaintext_len)
+    cipher.copy_slice(plaintext, buf[:plaintext_len])
+
+    aad = b"AAD"
+
+    deltas = []
+    for i in range(10000):
+        a = datetime.datetime.now()
+
+        cipher.encrypt(buf, plaintext_len, i, aad)
+
+        b = datetime.datetime.now()
+        delta = b - a
+        deltas.append(delta.total_seconds())
+
+    average = sum(deltas, 0) / len(deltas)
+    print(f"| {block_len/1024/1024} | {block_len/1024/1024/average} |")
+
+
+tmp_dir = create_directory_in_home("Cipher_tmp")
 sizes_mb = [
     0.03125,
     0.0625,
@@ -488,10 +503,10 @@ for size in sizes_mb:
     decrypt_file(file_path, file_path + ".enc")
     delete_file(file_path)
 
-print("\n decrypt_from")
+print("\n encrypt_speed_per_mb")
 print("| MB | Seconds |")
 print("| -- | ------- |")
-for size in sizes_mb if size:
+for size in [size for size in sizes_mb if size <= 16]:
     encrypt_speed_per_mb(int(size * 1024 * 1024))
 
 delete_dir(tmp_dir)
