@@ -14,7 +14,7 @@ use secrets::SecretVec;
 use zeroize::Zeroize;
 use crate::CipherMeta::Ring;
 
-mod encryptor;
+mod cipher;
 
 // 256KB seems to be the optimal block size that offers the max MB/s speed for encryption,
 // on benchmarks that seem to be the case.
