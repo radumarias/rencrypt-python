@@ -678,6 +678,7 @@ dependencies = [
  "blake3",
  "criterion",
  "hex",
+ "libsodium-sys",
  "numpy",
  "pyo3",
  "rand",
