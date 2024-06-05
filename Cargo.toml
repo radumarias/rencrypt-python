@@ -1,6 +1,6 @@
 [package]
 name = "rencrypt"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 
 [lib]
@@ -23,7 +23,7 @@ hex = "0.4.3"
 numpy = "0.21"
 libsodium-sys = "0.2.7"
 libc = "0.2.155"
-secrets = "1.2.0"
+secrets = { version = "1.2.0" , features = ["use-libsodium-sys"]}
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

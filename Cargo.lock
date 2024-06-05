@@ -673,7 +673,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 
 [[package]]
 name = "rencrypt"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "blake3",
  "criterion",
@@ -740,6 +740,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f51745a213c4a2acabad80cd511e40376996bc83db6ceb4ebc7853d41c597988"
 dependencies = [
  "libc",
+ "libsodium-sys",
  "pkg-config",
  "vcpkg",
 ]
