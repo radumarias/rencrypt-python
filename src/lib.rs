@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use ::secrets::SecretVec;
 use numpy::{PyArray1, PyArrayMethods};
 
 use pyo3::prelude::*;
@@ -12,7 +13,6 @@ use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NonceSequ
 use ring::error::Unspecified;
 use zeroize::Zeroize;
 use crate::CipherMeta::Ring;
-use crate::secrets::SecretVec;
 
 mod cipher;
 mod secrets;
@@ -522,7 +522,7 @@ fn create_ring_sealing_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (SealingK
     let nonce_sequence = nonce_seq.clone();
     let nonce_wrapper = RandomNonceSequenceWrapper::new(nonce_seq.clone());
     // Create a new AEAD key without a designated role or nonce sequence
-    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), key.as_ref()).unwrap();
+    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &*key.borrow()).unwrap();
 
     // Create a new AEAD key for encrypting and signing ("sealing"), bound to a nonce sequence
     // The SealingKey can be used multiple times, each time a new nonce will be used
@@ -532,7 +532,7 @@ fn create_ring_sealing_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (SealingK
 
 fn create_ring_opening_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>) {
     let last_nonce = Arc::new(Mutex::new(vec![0_u8; get_ring_algorithm(alg).nonce_len()]));
-    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), key.as_ref()).unwrap();
+    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &*key.borrow()).unwrap();
     let nonce_sequence = ExistingNonceSequence::new(last_nonce.clone());
     let opening_key = OpeningKey::new(unbound_key, nonce_sequence);
     (opening_key, last_nonce)

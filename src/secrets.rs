@@ -52,6 +52,12 @@ impl<T: Zeroize> Drop for SecretVec<T> {
     }
 }
 
+// impl<T> Debug for SecretVec<T> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "SecretVec<{}>[REDACTED]", std::any::type_name::<T>())
+//     }
+// }
+
 /// Initialized libsodium. This function *must* be called at least once
 /// prior to using any of the other functions in this library, and
 /// callers *must* verify that it returns `true`. If it returns `false`,
