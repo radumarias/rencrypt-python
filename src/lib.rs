@@ -10,11 +10,12 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::{ParallelSlice, ParallelSliceMut};
 use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey};
 use ring::error::Unspecified;
-use secrets::SecretVec;
 use zeroize::Zeroize;
 use crate::CipherMeta::Ring;
+use crate::secrets::SecretVec;
 
 mod cipher;
+mod secrets;
 
 // 256KB seems to be the optimal block size that offers the max MB/s speed for encryption,
 // on benchmarks that seem to be the case.
@@ -521,7 +522,7 @@ fn create_ring_sealing_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (SealingK
     let nonce_sequence = nonce_seq.clone();
     let nonce_wrapper = RandomNonceSequenceWrapper::new(nonce_seq.clone());
     // Create a new AEAD key without a designated role or nonce sequence
-    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &*key.borrow()).unwrap();
+    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), key.as_ref()).unwrap();
 
     // Create a new AEAD key for encrypting and signing ("sealing"), bound to a nonce sequence
     // The SealingKey can be used multiple times, each time a new nonce will be used
@@ -531,7 +532,7 @@ fn create_ring_sealing_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (SealingK
 
 fn create_ring_opening_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>) {
     let last_nonce = Arc::new(Mutex::new(vec![0_u8; get_ring_algorithm(alg).nonce_len()]));
-    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &*key.borrow()).unwrap();
+    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), key.as_ref()).unwrap();
     let nonce_sequence = ExistingNonceSequence::new(last_nonce.clone());
     let opening_key = OpeningKey::new(unbound_key, nonce_sequence);
     (opening_key, last_nonce)
@@ -684,7 +685,7 @@ mod tests {
     fn test_encrypt_decrypt() {
         let cipher_meta = Ring { alg: RingAlgorithm::AES256GCM };
         let alg = match cipher_meta { Ring { alg } => alg };
-        let key = SecretVec::<u8>::new(get_ring_algorithm(alg).key_len(), |s| {
+        let key = SecretVec::new(get_ring_algorithm(alg).key_len(), |s| {
             create_rng().fill_bytes(s);
         });
         let (sealing_key, nonce_sequence) = create_ring_sealing_key(alg, &key);

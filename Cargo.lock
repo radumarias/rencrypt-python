@@ -673,11 +673,13 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 
 [[package]]
 name = "rencrypt"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake3",
  "criterion",
  "hex",
+ "libc",
+ "libsodium-sys",
  "numpy",
  "pyo3",
  "rand",
@@ -685,7 +687,6 @@ dependencies = [
  "rand_core",
  "rayon",
  "ring",
- "secrets",
  "zeroize",
 ]
 
@@ -730,18 +731,6 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "secrets"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f51745a213c4a2acabad80cd511e40376996bc83db6ceb4ebc7853d41c597988"
-dependencies = [
- "libc",
- "libsodium-sys",
- "pkg-config",
- "vcpkg",
-]
 
 [[package]]
 name = "serde"
@@ -830,12 +819,6 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
-
-[[package]]
-name = "vcpkg"
-version = "0.2.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "walkdir"
