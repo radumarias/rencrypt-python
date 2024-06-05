@@ -654,7 +654,6 @@ This is usually done by running one of the following (note the leading DOT):
 . "$HOME/.cargo/env"
 ```
 ```
-sudo apt-get update && sudo apt-get install libsodium-dev
 python -m venv .env
 source .env/bin/activate
 pip install -r requirements.txt
