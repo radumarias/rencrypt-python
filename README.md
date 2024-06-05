@@ -519,6 +519,7 @@ if __name__ == "__main__":
         plaintext_len = chunk_len
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        mlock(buf)
 
         aad = b"AAD"
 
