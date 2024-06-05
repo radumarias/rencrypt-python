@@ -7,7 +7,6 @@ from pathlib import Path
 import shutil
 import io
 import numpy as np
-from zeroize import zeroize1, mlock, munlock
 
 
 def hash(bytes_in):
@@ -101,18 +100,14 @@ def encrypt(block_len):
     cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
-    mlock(key)
     cipher_meta.generate_key(key)
-    munlock(key)
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
     ciphertext_len = cipher.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-    mlock(buf)
 
     plaintext = bytearray(os.urandom(plaintext_len))
-    mlock(plaintext)
     cipher.copy_slice(plaintext, buf[:plaintext_len])
     aad = b"AAD"
 
@@ -128,26 +123,20 @@ def encrypt(block_len):
 
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
-    zeroize1(plaintext)
-    munlock(plaintext)
 
 
 def encrypt_from(block_len):
     cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
-    mlock(key)
     cipher_meta.generate_key(key)
-    munlock(key)
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
     ciphertext_len = cipher.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-    mlock(buf)
 
     plaintext = bytearray(os.urandom(plaintext_len))
-    mlock(plaintext)
     aad = b"AAD"
 
     deltas = []
@@ -163,9 +152,6 @@ def encrypt_from(block_len):
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
-    zeroize1(plaintext)
-    munlock(plaintext)
-
 
 def encrypt_file(path_in, path_out):
     chunk_len = 256 * 1024
@@ -175,15 +161,12 @@ def encrypt_file(path_in, path_out):
     cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
-    mlock(key)
     cipher_meta.generate_key(key)
-    munlock(key)
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = chunk_len
     ciphertext_len = cipher.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-    mlock(buf)
 
     aad = b"AAD"
 
@@ -211,26 +194,19 @@ def encrypt_file(path_in, path_out):
     filesize = get_file_size(path_in)
     print(f"| {(filesize / 1024 / 1024):.5g} | {average:.5f} |")
 
-    zeroize1(buf)
-    munlock(buf)
-
 
 def decrypt(block_len):
     cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
-    mlock(key)
     cipher_meta.generate_key(key)
-    munlock(key)
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
     ciphertext_len = cipher.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-    mlock(buf)
 
     plaintext = bytearray(os.urandom(plaintext_len))
-    mlock(plaintext)
     aad = b"AAD"
 
     deltas = []
@@ -251,28 +227,19 @@ def decrypt(block_len):
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
 
-    zeroize1(plaintext)
-    zeroize1(buf)
-    munlock(plaintext)
-    munlock(buf)
-
 
 def decrypt_from(block_len):
     cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
-    mlock(key)
     cipher_meta.generate_key(key)
-    munlock(key)
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
     ciphertext_len = cipher.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-    mlock(buf)
 
     plaintext = bytearray(os.urandom(plaintext_len))
-    mlock(plaintext)
     aad = b"AAD"
 
     deltas = []
@@ -293,11 +260,6 @@ def decrypt_from(block_len):
 
     average = sum(deltas, 0) / len(deltas)
     print(f"| {block_len/1024/1024} | {average:.5f} |")
-
-    zeroize1(plaintext)
-    zeroize1(buf)
-    munlock(plaintext)
-    munlock(buf)
 
 
 def decrypt_file(plaintext_file, ciphertext_file):
@@ -353,23 +315,17 @@ def decrypt_file(plaintext_file, ciphertext_file):
     filesize = get_file_size(plaintext_file)
     print(f"| {(filesize / 1024 / 1024):.5g} | {average:.5f} |")
 
-    zeroize1(buf)
-    munlock(buf)
-
 
 def encrypt_speed_per_mb(block_len):
     cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
-    mlock(key)
     cipher_meta.generate_key(key)
-    munlock(key)
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
     ciphertext_len = cipher.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-    mlock(buf)
 
     plaintext = bytearray(os.urandom(plaintext_len))
     cipher.copy_slice(plaintext, buf[:plaintext_len])

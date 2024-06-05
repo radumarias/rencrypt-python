@@ -87,30 +87,29 @@ class TestStringMethods(unittest.TestCase):
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
-        aad = b"AAD"
-
         # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
         # but for the sake of example we will allocate and copy the data
         plaintext = bytearray(os.urandom(plaintext_len))
         mlock(plaintext)
+        aad = b"AAD"
         # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
         # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
         ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
-        cipertext = buf[:ciphertext_len]
-        mlock(cipertext)
+        buf[:ciphertext_len]
 
         # decrypt it
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
         # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
         plaintext_len = cipher.decrypt(buf, ciphertext_len, 42, aad)
         plaintext2 = buf[:plaintext_len]
-        mlock(plaintext2)
         self.assertEqual(plaintext, plaintext2)
         
         zeroize1(plaintext)
         zeroize1(buf)
+        munlock(plaintext)
+        munlock(buf)
 
     def test_encrypt_chacha(self):
         cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)
@@ -127,19 +126,16 @@ class TestStringMethods(unittest.TestCase):
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
-        aad = b"AAD"
-
         # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
         # but for the sake of example we will allocate and copy the data
         plaintext = bytearray(os.urandom(plaintext_len))
         mlock(plaintext)
+        aad = b"AAD"
         # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
         # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
         ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
-        cipertext = buf[:ciphertext_len]
-        # you can do something with the ciphertext
 
         # decrypt it
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
@@ -148,13 +144,18 @@ class TestStringMethods(unittest.TestCase):
         plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
         
+        zeroize1(plaintext)
+        zeroize1(buf)
+        munlock(plaintext)
         munlock(buf)
 
     def test_encrypt_from_aes(self):
         cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
+        mlock(key)
         cipher_meta.generate_key(key)
+        munlock(key)
         cipher = Cipher(cipher_meta, key)
 
         # we create a buffer based on plaintext block len of 4096
@@ -162,10 +163,11 @@ class TestStringMethods(unittest.TestCase):
         plaintext_len = 4096
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-
-        aad = b"AAD"
+        mlock(buf)
 
         plaintext = bytearray(os.urandom(plaintext_len))
+        mlock(plaintext)
+        aad = b"AAD"
 
         # encrypt it, after this will have the ciphertext in the buffer
         ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
@@ -175,12 +177,19 @@ class TestStringMethods(unittest.TestCase):
         plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
+        
+        zeroize1(plaintext)
+        zeroize1(buf)
+        munlock(plaintext)
+        munlock(buf)
     
-    def test_encrypt_from_cha(self):
+    def test_encrypt_from_chacha(self):
         cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
+        mlock(key)
         cipher_meta.generate_key(key)
+        munlock(key)
         cipher = Cipher(cipher_meta, key)
 
         # we create a buffer based on plaintext block len of 4096
@@ -188,10 +197,11 @@ class TestStringMethods(unittest.TestCase):
         plaintext_len = 4096
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-
-        aad = b"AAD"
+        mlock(buf)
 
         plaintext = bytearray(os.urandom(plaintext_len))
+        mlock(plaintext)
+        aad = b"AAD"
 
         # encrypt it, after this will have the ciphertext in the buffer
         ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
@@ -201,6 +211,11 @@ class TestStringMethods(unittest.TestCase):
         plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
+        
+        zeroize1(plaintext)
+        zeroize1(buf)
+        munlock(plaintext)
+        munlock(buf)
     
     
     def test_encrypt_file_aes(self):
@@ -214,7 +229,9 @@ class TestStringMethods(unittest.TestCase):
         cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
+        mlock(key)
         cipher_meta.generate_key(key)
+        munlock(key)
         cipher = Cipher(cipher_meta, key)
         
         # we create a buffer based on plaintext block len of 4096
@@ -222,6 +239,7 @@ class TestStringMethods(unittest.TestCase):
         plaintext_len = chunk_len
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        mlock(buf)
 
         aad = b"AAD"
 
@@ -245,6 +263,9 @@ class TestStringMethods(unittest.TestCase):
             file_out.flush()
 
         compare_files_by_hash(fin, tmp)
+        
+        zeroize1(buf)
+        munlock(buf)
 
     def test_encrypt_file_chacha(self):
         tmp_dir = create_directory_in_home("Cipher_tmp")
@@ -257,7 +278,9 @@ class TestStringMethods(unittest.TestCase):
         cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
+        mlock(key)
         cipher_meta.generate_key(key)
+        munlock(key)
         cipher = Cipher(cipher_meta, key)
         
         # we create a buffer based on plaintext block len of 4096
@@ -265,7 +288,7 @@ class TestStringMethods(unittest.TestCase):
         plaintext_len = chunk_len
         ciphertext_len = cipher.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-
+        mlock(buf)
         aad = b"AAD"
 
         # encrypt
@@ -288,6 +311,9 @@ class TestStringMethods(unittest.TestCase):
             file_out.flush()
 
         compare_files_by_hash(fin, tmp)
+        
+        zeroize1(buf)
+        munlock(buf)
 
 
 if __name__ == "__main__":
