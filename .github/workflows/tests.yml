@@ -63,8 +63,8 @@ jobs:
         python -m venv .env
         source .env/bin/activate
         python -m pip install --upgrade pip
-        pip install -r requirements.txt        
-        maturin develop --release        
+        pip install -r requirements.txt
+        maturin develop --release
     - name: Run tests
       run: |
         source .env/bin/activate
@@ -89,7 +89,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m venv .env
         source .env/bin/activate
-        pip install -r requirements.txt        
+        pip install -r requirements.txt
         maturin develop --release
     - name: Run tests
       run: |
@@ -105,7 +105,7 @@ jobs:
     - name: Check out repository code
       uses: actions/checkout@v4
       with:
-        submodules: recursive            
+        submodules: recursive
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -115,7 +115,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m venv .env
         .env\Scripts\activate
-        pip install -r requirements.txt        
+        pip install -r requirements.txt
         maturin develop --release
     - name: Run tests
       run: |
