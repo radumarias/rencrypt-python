@@ -24,8 +24,8 @@ jobs:
             target: x86
           # - runner: ubuntu-latest
           #   target: aarch64
-          # - runner: ubuntu-latest
-          #   target: armv7
+          - runner: ubuntu-latest
+            target: armv7
           - runner: ubuntu-latest
             target: s390x
           - runner: ubuntu-latest
