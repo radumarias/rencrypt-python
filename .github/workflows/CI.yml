@@ -95,10 +95,7 @@ jobs:
         pip install -r requirements.txt        
         maturin develop --release
     - name: Run tests
-      run: |        python examples/encrypt.py
-        python examples/encrypt_from.py
-        python examples/encrypt_file.py
-        python benches/bench.py
+      run: |
         .env\Scripts\activate
         pytest
         python examples/encrypt.py
