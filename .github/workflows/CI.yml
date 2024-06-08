@@ -95,11 +95,17 @@ jobs:
         pip install -r requirements.txt        
         maturin develop --release
     - name: Run tests
-      run: |
+      run: |        python examples/encrypt.py
+        python examples/encrypt_from.py
+        python examples/encrypt_file.py
+        python benches/bench.py
         .env\Scripts\activate
         pytest
-        python examples/lock_and_zeroize.py
-
+        python examples/encrypt.py
+        python examples/encrypt_from.py
+        python examples/encrypt_file.py
+        python benches/bench.py
+        
   build_linux:
     needs: [test_linux, test_macos, test_windows]
     runs-on: ${{ matrix.platform.runner }}
