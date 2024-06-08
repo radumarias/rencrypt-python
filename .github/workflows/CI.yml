@@ -38,6 +38,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        python -m pip install --upgrade pip
         python -m venv .env
         source .env/bin/activate
         python -m pip install --upgrade pip
@@ -65,6 +66,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m venv .env
         source .env/bin/activate
+        python -m pip install --upgrade pip
         pip install -r requirements.txt        
         maturin develop --release
     - name: Run tests
@@ -89,6 +91,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m venv .env
         .env\Scripts\activate
+        python -m pip install --upgrade pip
         pip install -r requirements.txt        
         maturin develop --release
     - name: Run tests
@@ -195,7 +198,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build sdist
         uses: PyO3/maturin-action@v1
-        with:
+        with:        
           command: sdist
           args: --out dist
       - name: Upload sdist
