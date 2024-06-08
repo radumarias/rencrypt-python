@@ -2,15 +2,21 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rayon::prelude::*;
 
 fn parallel_copy_standard(source: &[u8], destination: &mut [u8]) {
-    source.par_iter().zip(destination.par_iter_mut()).for_each(|(&src, dst)| {
-        *dst = src;
-    });
+    source
+        .par_iter()
+        .zip(destination.par_iter_mut())
+        .for_each(|(&src, dst)| {
+            *dst = src;
+        });
 }
 
 fn parallel_copy_rchunks(source: &[u8], destination: &mut [u8], chunk_size: usize) {
-    destination.par_rchunks_mut(chunk_size).zip(source.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
-        dst_chunk.copy_from_slice(src_chunk);
-    });
+    destination
+        .par_rchunks_mut(chunk_size)
+        .zip(source.par_chunks(chunk_size))
+        .for_each(|(dst_chunk, src_chunk)| {
+            dst_chunk.copy_from_slice(src_chunk);
+        });
 }
 
 fn benchmark_parallel_copy(c: &mut Criterion) {
@@ -23,7 +29,13 @@ fn benchmark_parallel_copy(c: &mut Criterion) {
     });
 
     c.bench_function("parallel_copy_rchunks", |b| {
-        b.iter(|| parallel_copy_rchunks(black_box(&source), black_box(&mut destination), black_box(chunk_size)))
+        b.iter(|| {
+            parallel_copy_rchunks(
+                black_box(&source),
+                black_box(&mut destination),
+                black_box(chunk_size),
+            )
+        })
     });
 }
 

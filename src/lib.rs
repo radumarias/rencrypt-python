@@ -1,7 +1,8 @@
-use std::sync::{Arc, Mutex};
 use ::secrets::SecretVec;
 use numpy::{PyArray1, PyArrayMethods};
+use std::sync::{Arc, Mutex};
 
+use crate::CipherMeta::Ring;
 use pyo3::prelude::*;
 use pyo3::types::{PyByteArray, PyBytes};
 use rand_chacha::ChaCha20Rng;
@@ -9,10 +10,12 @@ use rand_core::{CryptoRng, RngCore, SeedableRng};
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::{ParallelSlice, ParallelSliceMut};
-use ring::aead::{Aad, AES_256_GCM, BoundKey, CHACHA20_POLY1305, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey};
+use ring::aead::{
+    Aad, BoundKey, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey, AES_256_GCM,
+    CHACHA20_POLY1305,
+};
 use ring::error::Unspecified;
 use zeroize::Zeroize;
-use crate::CipherMeta::Ring;
 
 mod cipher;
 mod secrets;
@@ -67,8 +70,12 @@ impl CipherMeta {
     #[pyo3(signature = ())]
     pub const fn max_plaintext_len(&self) -> usize {
         match self {
-            Ring { alg: RingAlgorithm::ChaCha20Poly1305 } => (2_usize.pow(32) - 1) * 64,
-            Ring { alg: RingAlgorithm::AES256GCM } => (2_usize.pow(39) - 256) / 8,
+            Ring {
+                alg: RingAlgorithm::ChaCha20Poly1305,
+            } => (2_usize.pow(32) - 1) * 64,
+            Ring {
+                alg: RingAlgorithm::AES256GCM,
+            } => (2_usize.pow(39) - 256) / 8,
             // RustCrypto { alg: RustCryptoAlgorithm::ChaCha20Poly1305 } => (2_usize.pow(32) - 1) * 64,
             // RustCrypto { alg: RustCryptoAlgorithm::AES256GCM } => (2_usize.pow(39) - 256) / 8,
         }
@@ -76,7 +83,9 @@ impl CipherMeta {
 
     pub fn generate_key<'py>(&self, key: &Bound<'py, PyByteArray>) {
         let mut rng = create_rng();
-        unsafe { rng.fill_bytes(key.as_bytes_mut()); }
+        unsafe {
+            rng.fill_bytes(key.as_bytes_mut());
+        }
     }
 }
 
@@ -102,7 +111,9 @@ impl Cipher {
         });
         key_mut.zeroize();
 
-        let alg = match cipher_meta { Ring { alg } => alg };
+        let alg = match cipher_meta {
+            Ring { alg } => alg,
+        };
         let (sealing_key, nonce_sequence) = create_ring_sealing_key(alg, &key);
         let (opening_key, last_nonce) = create_ring_opening_key(alg, &key);
 
@@ -120,18 +131,56 @@ impl Cipher {
         plaintext_len + overhead(self.cipher_meta)
     }
 
-    pub fn encrypt<'py>(&self, buf: &Bound<'py, PyAny>, plaintext_len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
-        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(as_array_mut(buf)?, plaintext_len, tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
-        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
+    pub fn encrypt<'py>(
+        &self,
+        buf: &Bound<'py, PyAny>,
+        plaintext_len: usize,
+        block_index: u64,
+        aad: &[u8],
+    ) -> PyResult<usize> {
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(
+            as_array_mut(buf)?,
+            plaintext_len,
+            tag_len(self.cipher_meta),
+            nonce_len(self.cipher_meta),
+        );
+        encrypt(
+            plaintext,
+            block_index,
+            aad,
+            self.sealing_key.clone(),
+            self.nonce_sequence.clone(),
+            tag_out,
+            nonce_out,
+        );
         Ok(plaintext_len + overhead(self.cipher_meta))
     }
 
-    pub fn encrypt_from<'py>(&self, plaintext: &Bound<'py, PyAny>, buf: &Bound<'py, PyAny>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+    pub fn encrypt_from<'py>(
+        &self,
+        plaintext: &Bound<'py, PyAny>,
+        buf: &Bound<'py, PyAny>,
+        block_index: u64,
+        aad: &[u8],
+    ) -> PyResult<usize> {
         let plaintext = as_array(plaintext)?;
         let buf = as_array_mut(buf)?;
         copy_slice(plaintext, buf);
-        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(buf, plaintext.len(), tag_len(self.cipher_meta), nonce_len(self.cipher_meta));
-        encrypt(plaintext, block_index, aad, self.sealing_key.clone(), self.nonce_sequence.clone(), tag_out, nonce_out);
+        let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(
+            buf,
+            plaintext.len(),
+            tag_len(self.cipher_meta),
+            nonce_len(self.cipher_meta),
+        );
+        encrypt(
+            plaintext,
+            block_index,
+            aad,
+            self.sealing_key.clone(),
+            self.nonce_sequence.clone(),
+            tag_out,
+            nonce_out,
+        );
         Ok(plaintext.len() + overhead(self.cipher_meta))
     }
 
@@ -320,19 +369,53 @@ impl Cipher {
     //     Ok(())
     // }
 
-    pub fn decrypt<'py>(&mut self, buf: &Bound<'py, PyAny>, plaintext_and_tag_len: usize, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+    pub fn decrypt<'py>(
+        &mut self,
+        buf: &Bound<'py, PyAny>,
+        plaintext_and_tag_len: usize,
+        block_index: u64,
+        aad: &[u8],
+    ) -> PyResult<usize> {
         let buf = as_array_mut(buf)?;
-        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(buf, plaintext_and_tag_len, nonce_len(self.cipher_meta));
-        decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(
+            buf,
+            plaintext_and_tag_len,
+            nonce_len(self.cipher_meta),
+        );
+        decrypt(
+            ciphertext_and_tag,
+            block_index,
+            aad,
+            self.opening_key.clone(),
+            self.last_nonce.clone(),
+            nonce,
+        );
         Ok(plaintext_and_tag_len - overhead(self.cipher_meta))
     }
 
-    pub fn decrypt_from<'py>(&self, ciphertext_and_tag_and_nonce: &Bound<'py, PyAny>, buf: &Bound<'py, PyAny>, block_index: u64, aad: &[u8]) -> PyResult<usize> {
+    pub fn decrypt_from<'py>(
+        &self,
+        ciphertext_and_tag_and_nonce: &Bound<'py, PyAny>,
+        buf: &Bound<'py, PyAny>,
+        block_index: u64,
+        aad: &[u8],
+    ) -> PyResult<usize> {
         let ciphertext_and_tag_and_nonce = as_array(ciphertext_and_tag_and_nonce)?;
         let buf = as_array_mut(buf)?;
         copy_slice(ciphertext_and_tag_and_nonce, buf);
-        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(buf, ciphertext_and_tag_and_nonce.len(), nonce_len(self.cipher_meta));
-        let plaintext = decrypt(ciphertext_and_tag, block_index, aad, self.opening_key.clone(), self.last_nonce.clone(), nonce);
+        let (ciphertext_and_tag, nonce) = split_plaintext_and_tag_nonce_mut(
+            buf,
+            ciphertext_and_tag_and_nonce.len(),
+            nonce_len(self.cipher_meta),
+        );
+        let plaintext = decrypt(
+            ciphertext_and_tag,
+            block_index,
+            aad,
+            self.opening_key.clone(),
+            self.last_nonce.clone(),
+            nonce,
+        );
         Ok(plaintext.len())
     }
 
@@ -460,9 +543,11 @@ fn copy_slice_internal(dst: &mut [u8], src: &[u8]) {
 }
 
 fn copy_slice_concurrently(dst: &mut [u8], src: &[u8], chunk_size: usize) {
-    dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
-        dst_chunk.copy_from_slice(src_chunk);
-    });
+    dst.par_chunks_mut(chunk_size)
+        .zip(src.par_chunks(chunk_size))
+        .for_each(|(dst_chunk, src_chunk)| {
+            dst_chunk.copy_from_slice(src_chunk);
+        });
 }
 
 fn get_ring_algorithm(alg: RingAlgorithm) -> &'static ring::aead::Algorithm {
@@ -472,9 +557,15 @@ fn get_ring_algorithm(alg: RingAlgorithm) -> &'static ring::aead::Algorithm {
     }
 }
 
-fn encrypt(plaintext: &mut [u8], block_index: u64, aad: &[u8],
-           sealing_key: Arc<Mutex<SealingKey<RandomNonceSequenceWrapper>>>, nonce_sequence: Arc<Mutex<RandomNonceSequence>>,
-           tag_out: &mut [u8], nonce_out: &mut [u8]) {
+fn encrypt(
+    plaintext: &mut [u8],
+    block_index: u64,
+    aad: &[u8],
+    sealing_key: Arc<Mutex<SealingKey<RandomNonceSequenceWrapper>>>,
+    nonce_sequence: Arc<Mutex<RandomNonceSequence>>,
+    tag_out: &mut [u8],
+    nonce_out: &mut [u8],
+) {
     // lock here to keep the lock while encrypting
     let mut sealing_key = sealing_key.lock().unwrap();
 
@@ -484,14 +575,22 @@ fn encrypt(plaintext: &mut [u8], block_index: u64, aad: &[u8],
     aad2[aad.len()..].copy_from_slice(&block_index_bytes);
     let aad = Aad::<&[u8]>::from(aad2.as_ref());
 
-    let tag = sealing_key.seal_in_place_separate_tag(aad, plaintext).unwrap();
+    let tag = sealing_key
+        .seal_in_place_separate_tag(aad, plaintext)
+        .unwrap();
 
     tag_out.copy_from_slice(tag.as_ref());
     nonce_out.copy_from_slice(&nonce_sequence.lock().unwrap().last_nonce);
 }
 
-fn decrypt<'a>(ciphertext_and_tag: &'a mut [u8], block_index: u64, aad: &[u8], opening_key: Arc<Mutex<OpeningKey<ExistingNonceSequence>>>,
-               last_nonce: Arc<Mutex<Vec<u8>>>, nonce: &[u8]) -> &'a mut [u8] {
+fn decrypt<'a>(
+    ciphertext_and_tag: &'a mut [u8],
+    block_index: u64,
+    aad: &[u8],
+    opening_key: Arc<Mutex<OpeningKey<ExistingNonceSequence>>>,
+    last_nonce: Arc<Mutex<Vec<u8>>>,
+    nonce: &[u8],
+) -> &'a mut [u8] {
     // lock here to keep the lock while decrypting
     let mut opening_key = opening_key.lock().unwrap();
 
@@ -503,7 +602,9 @@ fn decrypt<'a>(ciphertext_and_tag: &'a mut [u8], block_index: u64, aad: &[u8], o
     aad2[aad.len()..].copy_from_slice(&block_index_bytes);
     let aad = Aad::<&[u8]>::from(aad2.as_ref());
 
-    let plaintext = opening_key.open_within(aad, ciphertext_and_tag, 0..).unwrap();
+    let plaintext = opening_key
+        .open_within(aad, ciphertext_and_tag, 0..)
+        .unwrap();
     plaintext
 }
 
@@ -516,9 +617,17 @@ fn copy_slice(src: &[u8], dst: &mut [u8]) {
     }
 }
 
-fn create_ring_sealing_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (SealingKey<RandomNonceSequenceWrapper>, Arc<Mutex<RandomNonceSequence>>) {
+fn create_ring_sealing_key(
+    alg: RingAlgorithm,
+    key: &SecretVec<u8>,
+) -> (
+    SealingKey<RandomNonceSequenceWrapper>,
+    Arc<Mutex<RandomNonceSequence>>,
+) {
     // Create a new NonceSequence type which generates nonces
-    let nonce_seq = Arc::new(Mutex::new(RandomNonceSequence::new(get_ring_algorithm(alg).nonce_len())));
+    let nonce_seq = Arc::new(Mutex::new(RandomNonceSequence::new(
+        get_ring_algorithm(alg).nonce_len(),
+    )));
     let nonce_sequence = nonce_seq.clone();
     let nonce_wrapper = RandomNonceSequenceWrapper::new(nonce_seq.clone());
     // Create a new AEAD key without a designated role or nonce sequence
@@ -530,7 +639,10 @@ fn create_ring_sealing_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (SealingK
     (sealing_key, nonce_sequence)
 }
 
-fn create_ring_opening_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> (OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>) {
+fn create_ring_opening_key(
+    alg: RingAlgorithm,
+    key: &SecretVec<u8>,
+) -> (OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>) {
     let last_nonce = Arc::new(Mutex::new(vec![0_u8; get_ring_algorithm(alg).nonce_len()]));
     let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &*key.borrow()).unwrap();
     let nonce_sequence = ExistingNonceSequence::new(last_nonce.clone());
@@ -569,9 +681,13 @@ pub fn overhead(cipher_meta: CipherMeta) -> usize {
     tag_len(cipher_meta) + nonce_len(cipher_meta)
 }
 
-
 /// Slit plaintext__and_tag__and_nonce in (plaintext, tag, nonce)
-fn split_plaintext_tag_nonce_mut<'a>(data: &'a mut [u8], plaintext_len: usize, tag_len: usize, nonce_len: usize) -> (&'a mut [u8], &'a mut [u8], &'a mut [u8]) {
+fn split_plaintext_tag_nonce_mut<'a>(
+    data: &'a mut [u8],
+    plaintext_len: usize,
+    tag_len: usize,
+    nonce_len: usize,
+) -> (&'a mut [u8], &'a mut [u8], &'a mut [u8]) {
     let (plaintext, tag_and_nonce_and_free) = data.split_at_mut(plaintext_len);
     let (tag, nonce_and_free) = tag_and_nonce_and_free.split_at_mut(tag_len);
     let (nonce, _) = nonce_and_free.split_at_mut(nonce_len);
@@ -579,8 +695,13 @@ fn split_plaintext_tag_nonce_mut<'a>(data: &'a mut [u8], plaintext_len: usize, t
 }
 
 /// Slit plaintext__and_tag__and_nonce in (plaintext_and_tag, nonce)
-fn split_plaintext_and_tag_nonce_mut<'a>(data: &'a mut [u8], plaintext_and_tag_and_nonce_len: usize, nonce_len: usize) -> (&'a mut [u8], &'a mut [u8]) {
-    let (plaintext_and_tag, nonce_and_free) = data.split_at_mut(plaintext_and_tag_and_nonce_len - nonce_len);
+fn split_plaintext_and_tag_nonce_mut<'a>(
+    data: &'a mut [u8],
+    plaintext_and_tag_and_nonce_len: usize,
+    nonce_len: usize,
+) -> (&'a mut [u8], &'a mut [u8]) {
+    let (plaintext_and_tag, nonce_and_free) =
+        data.split_at_mut(plaintext_and_tag_and_nonce_len - nonce_len);
     let (nonce, _) = nonce_and_free.split_at_mut(nonce_len);
     (plaintext_and_tag, nonce)
 }
@@ -658,11 +779,17 @@ mod tests {
         create_rng().fill_bytes(&mut src);
         let mut dst = vec![0_u8; src.len()];
 
-        assert_eq!(src.len() % chunk_size, 0, "Array size must be a multiple of chunk size");
+        assert_eq!(
+            src.len() % chunk_size,
+            0,
+            "Array size must be a multiple of chunk size"
+        );
 
-        dst.par_chunks_mut(chunk_size).zip(src.par_chunks(chunk_size)).for_each(|(dst_chunk, src_chunk)| {
-            dst_chunk.copy_from_slice(src_chunk);
-        });
+        dst.par_chunks_mut(chunk_size)
+            .zip(src.par_chunks(chunk_size))
+            .for_each(|(dst_chunk, src_chunk)| {
+                dst_chunk.copy_from_slice(src_chunk);
+            });
 
         assert_eq!(dst, src);
     }
@@ -683,8 +810,12 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt() {
-        let cipher_meta = Ring { alg: RingAlgorithm::AES256GCM };
-        let alg = match cipher_meta { Ring { alg } => alg };
+        let cipher_meta = Ring {
+            alg: RingAlgorithm::AES256GCM,
+        };
+        let alg = match cipher_meta {
+            Ring { alg } => alg,
+        };
         let key = SecretVec::new(get_ring_algorithm(alg).key_len(), |s| {
             create_rng().fill_bytes(s);
         });
@@ -698,12 +829,36 @@ mod tests {
         create_rng().fill_bytes(&mut plaintext);
         buf[..message_len].copy_from_slice(&plaintext);
         {
-            let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(&mut buf, message_len, tag_len(cipher_meta), nonce_len(cipher_meta));
-            encrypt(plaintext, 0, b"", Arc::new(Mutex::new(sealing_key)), nonce_sequence, tag_out, nonce_out);
+            let (plaintext, tag_out, nonce_out) = split_plaintext_tag_nonce_mut(
+                &mut buf,
+                message_len,
+                tag_len(cipher_meta),
+                nonce_len(cipher_meta),
+            );
+            encrypt(
+                plaintext,
+                0,
+                b"",
+                Arc::new(Mutex::new(sealing_key)),
+                nonce_sequence,
+                tag_out,
+                nonce_out,
+            );
         }
 
-        let (plaintext_and_tag, nonce_out) = split_plaintext_and_tag_nonce_mut(&mut buf, message_len + overhead, nonce_len(cipher_meta));
-        let plaintext2 = decrypt(plaintext_and_tag, 0, b"", Arc::new(Mutex::new(opening_key)), last_nonce, &nonce_out);
+        let (plaintext_and_tag, nonce_out) = split_plaintext_and_tag_nonce_mut(
+            &mut buf,
+            message_len + overhead,
+            nonce_len(cipher_meta),
+        );
+        let plaintext2 = decrypt(
+            plaintext_and_tag,
+            0,
+            b"",
+            Arc::new(Mutex::new(opening_key)),
+            last_nonce,
+            &nonce_out,
+        );
 
         assert_eq!(plaintext, plaintext2);
     }
