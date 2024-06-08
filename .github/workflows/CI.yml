@@ -124,7 +124,7 @@ jobs:
         python benches/bench.py
         
   build_linux:
-    needs: [test_py_linux, test_py_macos, test_py_windows]
+    needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -160,7 +160,7 @@ jobs:
           path: dist
 
   build_windows:
-    needs: [test_py_linux, test_py_macos, test_py_windows]
+    needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -188,7 +188,7 @@ jobs:
           path: dist
 
   build_macos:
-    needs: [test_py_linux, test_py_macos, test_py_windows]
+    needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -215,7 +215,7 @@ jobs:
           path: dist
 
   build_sdist:
-    needs: [test_py_linux, test_py_macos, test_py_windows]
+    needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
