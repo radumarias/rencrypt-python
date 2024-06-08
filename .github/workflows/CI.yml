@@ -209,7 +209,7 @@ jobs:
 
   release:
     name: Create release and publish to PyPI
-    if: needs.check_version.outputs.changed && github.event_name == 'push'
+    if: needs.check_version.outputs.changed == 'true' && github.event_name == 'push'
     needs: [check_version, build_linux, build_windows, build_macos, build_sdist]
     runs-on: ubuntu-latest
     permissions:
