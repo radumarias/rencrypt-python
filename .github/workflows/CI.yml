@@ -24,7 +24,28 @@ jobs:
       - id: check_version
         uses: radumarias/action-check-version-changed-rust@v1
   
+  test_rust:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        runer: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        run: rustup default nightly && rustup update
+
+      - name: Fmt check
+        run: cargo fmt --check
+      
+      - name: Check
+        run: cargo check
+      
+      - name: Tests
+        run: cargo test
+
   test_linux:
+    needs: [test_rust]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -50,6 +71,7 @@ jobs:
         ./tests.sh
 
   test_macos:
+    needs: [test_rust]
     runs-on: macos-latest
     strategy:
       matrix:
@@ -75,6 +97,7 @@ jobs:
         ./tests.sh
 
   test_windows:
+    needs: [test_rust]
     runs-on: windows-latest
     strategy:
       matrix:
