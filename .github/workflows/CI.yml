@@ -44,8 +44,7 @@ jobs:
       - name: Tests
         run: cargo test
 
-  test_linux:
-    needs: [test_rust]
+  test_py_linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -70,8 +69,7 @@ jobs:
         source .env/bin/activate
         ./tests.sh
 
-  test_macos:
-    needs: [test_rust]
+  test_py_macos:
     runs-on: macos-latest
     strategy:
       matrix:
@@ -96,8 +94,7 @@ jobs:
         source .env/bin/activate
         ./tests.sh
 
-  test_windows:
-    needs: [test_rust]
+  test_py_windows:
     runs-on: windows-latest
     strategy:
       matrix:
@@ -127,7 +124,7 @@ jobs:
         python benches/bench.py
         
   build_linux:
-    needs: [test_linux, test_macos, test_windows]
+    needs: [test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -163,7 +160,7 @@ jobs:
           path: dist
 
   build_windows:
-    needs: [test_linux, test_macos, test_windows]
+    needs: [test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -191,7 +188,7 @@ jobs:
           path: dist
 
   build_macos:
-    needs: [test_linux, test_macos, test_windows]
+    needs: [test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -218,7 +215,7 @@ jobs:
           path: dist
 
   build_sdist:
-    needs: [test_linux, test_macos, test_windows]
+    needs: [test_py_linux, test_py_macos, test_py_windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
