@@ -1,0 +1,231 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]    
+
+env:
+  CARGO_TERM_COLOR: always
+  
+jobs:
+  check_version:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check_version.outputs.changed }}
+      version: ${{ steps.check_version.outputs.version }}
+      prev_version: ${{ steps.check_version.outputs.prev_version }}
+      
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check_version
+        uses: radumarias/action-check-version-changed-rust@v1
+  
+  test_linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9, "3.10"]
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v4          
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m venv .env
+        source .env/bin/activate
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt        
+        maturin develop --release        
+    - name: Run tests
+      run: |
+        source .env/bin/activate
+        ./tests.sh
+
+  test_macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, "3.10"]
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v4          
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m venv .env
+        source .env/bin/activate
+        pip install -r requirements.txt        
+        maturin develop --release
+    - name: Run tests
+      run: |
+        source .env/bin/activate
+        ./tests.sh
+
+  test_windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9, "3.10"]
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v4          
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m venv .env
+        .env\Scripts\activate
+        pip install -r requirements.txt        
+        maturin develop --release
+    - name: Run tests
+      run: |
+        .env\Scripts\activate
+        pytest
+        python examples/lock_and_zeroize.py
+
+  build_linux:
+    needs: [test_linux, test_macos, test_windows]
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-latest
+            target: x86_64
+          - runner: ubuntu-latest
+            target: x86
+          # - runner: ubuntu-latest
+          #   target: aarch64
+          - runner: ubuntu-latest
+            target: armv7
+          - runner: ubuntu-latesttarget: aarch64
+            target: s390x
+          - runner: ubuntu-latest
+            target: ppc64le
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+          manylinux: auto
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.platform.target }}
+          path: dist
+
+  build_windows:
+    needs: [test_linux, test_macos, test_windows]
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: windows-latest
+            target: x64
+          # - runner: windows-latest
+          #   target: x86
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          architecture: ${{ matrix.platform.target }}
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.platform.target }}
+          path: dist
+
+  build_macos:
+    needs: [test_linux, test_macos, test_windows]
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: macos-latest
+            target: x86_64
+          - runner: macos-14
+            target: aarch64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.platform.target }}
+          path: dist
+
+  build_sdist:
+    needs: [test_linux, test_macos, test_windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist
+
+  release:
+    name: Create release and publish to PyPI
+    if: needs.check_version.outputs.changed && github.event_name == 'push'
+    needs: [check_version, build_linux, build_windows, build_macos, build_sdist]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ncipollo/release-action@v1
+        name: Create release
+        with:
+          name: Release v${{ needs.check_version.outputs.version }}
+          tag: v${{ needs.check_version.outputs.version }}
+          generateReleaseNotes: true
+
+      - uses: actions/download-artifact@v4
+      - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        with:
+          command: upload
+          args: --non-interactive --skip-existing wheels-*/*
