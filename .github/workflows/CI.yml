@@ -111,7 +111,7 @@ jobs:
           #   target: aarch64
           - runner: ubuntu-latest
             target: armv7
-          - runner: ubuntu-latesttarget: aarch64
+          - runner: ubuntu-latest
             target: s390x
           - runner: ubuntu-latest
             target: ppc64le
