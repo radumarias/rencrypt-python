@@ -1,8 +1,7 @@
 # rencrypt
 
 [![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
-[![PyPI](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/PyPI.yml)
-[![tests](https://github.com/radumarias/rencrypt-python/actions/workflows/tests.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/tests.yml)  
+[![CI](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml)
 
 > [!WARNING]
 > **This crate hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle at least the primitives should offer a similar level of security.  
