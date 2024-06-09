@@ -959,7 +959,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 1. Fork the repo
 2. Make the changes in your fork
-3. Add tests for you changes, if applicable
+3. Add tests for your changes, if applicable
 4. `cargo build --all --all-features` and fix any issues
 5. `cargo fmt --all`, you can cnofigure your IDE to do this on save [RustRover](https://www.jetbrains.com/help/rust/rustfmt.html) and [VSCode](https://code.visualstudio.com/docs/languages/rust#_formatting)
 6. `cargo check --all --all-features` and fix any errors and warnings
