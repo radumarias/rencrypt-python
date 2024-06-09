@@ -948,3 +948,25 @@ We performed `10.000` encryption operations for each size varying from `1KB` to 
 # Considerations
 
 This lib hasn't been audited, but it mostly wraps `ring` crate which is a well known library, so in principle it should offer as similar level of security.
+
+# Contribute
+
+Feel free to fork it, change and use it in any way that you want. If you build something interesting and feel like sharing pull requests are always appreciated.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this project by you, as defined in the Apache License, shall be dual-licensed as above, without any additional terms or conditions.
+
+## How to contribute
+
+1. Fork the repo
+2. Make the changes in your fork
+3. Add tests for you changes, if applicable
+4. `cargo build --all --all-features` and fix any issues
+5. `cargo fmt --all`, you can cnofigure your IDE to do this on save [RustRover](https://www.jetbrains.com/help/rust/rustfmt.html) and [VSCode](https://code.visualstudio.com/docs/languages/rust#_formatting)
+6. `cargo check --all --all-features` and fix any errors and warnings
+7. `cargo clippy --all --all-features -- -D warnings` and fix any errors
+8. `cargo test --all --all-features` and fix any issues
+9. `cargo bench --all --all-features` and fix any issues
+10. Create a PR
+11. Monitor the checks (GitHub actions runned)
+12. Respond to any comments
+13. In the end ideally it will be merged to `main`
