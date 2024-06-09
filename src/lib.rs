@@ -1,3 +1,4 @@
+#![deny(warnings)]
 use ::secrets::SecretVec;
 use numpy::{PyArray1, PyArrayMethods};
 use std::sync::{Arc, Mutex};
