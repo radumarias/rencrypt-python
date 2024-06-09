@@ -12,10 +12,24 @@ readme = "README.md"
 keywords = ["cryptography", "encryption", "security", "rust", "speed"]
 requires-python = ">=3.7"
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Topic :: Education",
+    "Topic :: Software Development :: Libraries",
     "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License"
 ]
 dynamic = ["version"]
 [tool.maturin]
