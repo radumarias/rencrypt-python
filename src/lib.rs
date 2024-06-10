@@ -684,11 +684,11 @@ pub fn overhead(cipher_meta: CipherMeta) -> usize {
 
 /// Slit plaintext__and_tag__and_nonce in (plaintext, tag, nonce)
 fn split_plaintext_tag_nonce_mut(
-    data: & mut [u8],
+    data: &mut [u8],
     plaintext_len: usize,
     tag_len: usize,
     nonce_len: usize,
-) -> (& mut [u8], & mut [u8], & mut [u8]) {
+) -> (&mut [u8], &mut [u8], &mut [u8]) {
     let (plaintext, tag_and_nonce_and_free) = data.split_at_mut(plaintext_len);
     let (tag, nonce_and_free) = tag_and_nonce_and_free.split_at_mut(tag_len);
     let (nonce, _) = nonce_and_free.split_at_mut(nonce_len);
@@ -697,10 +697,10 @@ fn split_plaintext_tag_nonce_mut(
 
 /// Slit plaintext__and_tag__and_nonce in (plaintext_and_tag, nonce)
 fn split_plaintext_and_tag_nonce_mut(
-    data: & mut [u8],
+    data: &mut [u8],
     plaintext_and_tag_and_nonce_len: usize,
     nonce_len: usize,
-) -> (& mut [u8], & mut [u8]) {
+) -> (&mut [u8], &mut [u8]) {
     let (plaintext_and_tag, nonce_and_free) =
         data.split_at_mut(plaintext_and_tag_and_nonce_len - nonce_len);
     let (nonce, _) = nonce_and_free.split_at_mut(nonce_len);
