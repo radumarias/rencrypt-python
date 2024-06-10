@@ -41,13 +41,16 @@ jobs:
         run: rustup update    
 
       - name: Fmt check
-        run: cargo fmt --check
+        run: cargo fmt --check --all
       
       - name: Check
-        run: cargo check
+        run: cargo check --all
+  
+      - name: clippy
+        run: cargo clippy --all --all-features
       
       - name: Tests
-        run: cargo test
+        run: cargo test --all --all-features
 
   test_py_linux:
     runs-on: ubuntu-latest
