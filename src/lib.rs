@@ -82,7 +82,7 @@ impl CipherMeta {
         }
     }
 
-    pub fn generate_key<'py>(&self, key: &Bound<'py, PyByteArray>) {
+    pub fn generate_key(&self, key: &Bound<'_, PyByteArray>) {
         let mut rng = create_rng();
         unsafe {
             rng.fill_bytes(key.as_bytes_mut());
@@ -105,7 +105,7 @@ impl Cipher {
     /// The key is copied and the input key is zeroized for security reasons.
     /// The copied key will also be zeroized when the object is dropped.
     #[new]
-    pub fn new<'py>(cipher_meta: CipherMeta, key: Bound<'py, PyAny>) -> PyResult<Self> {
+    pub fn new(cipher_meta: CipherMeta, key: Bound<'_, PyAny>) -> PyResult<Self> {
         let key_mut = as_array_mut(&key)?;
         let key = SecretVec::<u8>::new(key_mut.len(), |s| {
             s.copy_from_slice(key_mut);
@@ -132,9 +132,9 @@ impl Cipher {
         plaintext_len + overhead(self.cipher_meta)
     }
 
-    pub fn encrypt<'py>(
+    pub fn encrypt(
         &self,
-        buf: &Bound<'py, PyAny>,
+        buf: &Bound<'_, PyAny>,
         plaintext_len: usize,
         block_index: u64,
         aad: &[u8],
@@ -370,9 +370,9 @@ impl Cipher {
     //     Ok(())
     // }
 
-    pub fn decrypt<'py>(
+    pub fn decrypt(
         &mut self,
-        buf: &Bound<'py, PyAny>,
+        buf: &Bound<'_, PyAny>,
         plaintext_and_tag_len: usize,
         block_index: u64,
         aad: &[u8],
@@ -489,7 +489,7 @@ impl Cipher {
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn rencrypt<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+fn rencrypt(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Cipher>()?;
     m.add_class::<RingAlgorithm>()?;
     m.add_class::<CipherMeta>()?;
@@ -540,7 +540,7 @@ impl NonceSequence for RandomNonceSequenceWrapper {
 }
 
 fn copy_slice_internal(dst: &mut [u8], src: &[u8]) {
-    dst.copy_from_slice(&src);
+    dst.copy_from_slice(src);
 }
 
 fn copy_slice_concurrently(dst: &mut [u8], src: &[u8], chunk_size: usize) {
@@ -632,7 +632,7 @@ fn create_ring_sealing_key(
     let nonce_sequence = nonce_seq.clone();
     let nonce_wrapper = RandomNonceSequenceWrapper::new(nonce_seq.clone());
     // Create a new AEAD key without a designated role or nonce sequence
-    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &*key.borrow()).unwrap();
+    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &key.borrow()).unwrap();
 
     // Create a new AEAD key for encrypting and signing ("sealing"), bound to a nonce sequence
     // The SealingKey can be used multiple times, each time a new nonce will be used
@@ -645,7 +645,7 @@ fn create_ring_opening_key(
     key: &SecretVec<u8>,
 ) -> (OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>) {
     let last_nonce = Arc::new(Mutex::new(vec![0_u8; get_ring_algorithm(alg).nonce_len()]));
-    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &*key.borrow()).unwrap();
+    let unbound_key = UnboundKey::new(get_ring_algorithm(alg), &key.borrow()).unwrap();
     let nonce_sequence = ExistingNonceSequence::new(last_nonce.clone());
     let opening_key = OpeningKey::new(unbound_key, nonce_sequence);
     (opening_key, last_nonce)
@@ -683,12 +683,12 @@ pub fn overhead(cipher_meta: CipherMeta) -> usize {
 }
 
 /// Slit plaintext__and_tag__and_nonce in (plaintext, tag, nonce)
-fn split_plaintext_tag_nonce_mut<'a>(
-    data: &'a mut [u8],
+fn split_plaintext_tag_nonce_mut(
+    data: & mut [u8],
     plaintext_len: usize,
     tag_len: usize,
     nonce_len: usize,
-) -> (&'a mut [u8], &'a mut [u8], &'a mut [u8]) {
+) -> (& mut [u8], & mut [u8], & mut [u8]) {
     let (plaintext, tag_and_nonce_and_free) = data.split_at_mut(plaintext_len);
     let (tag, nonce_and_free) = tag_and_nonce_and_free.split_at_mut(tag_len);
     let (nonce, _) = nonce_and_free.split_at_mut(nonce_len);
@@ -696,11 +696,11 @@ fn split_plaintext_tag_nonce_mut<'a>(
 }
 
 /// Slit plaintext__and_tag__and_nonce in (plaintext_and_tag, nonce)
-fn split_plaintext_and_tag_nonce_mut<'a>(
-    data: &'a mut [u8],
+fn split_plaintext_and_tag_nonce_mut(
+    data: & mut [u8],
     plaintext_and_tag_and_nonce_len: usize,
     nonce_len: usize,
-) -> (&'a mut [u8], &'a mut [u8]) {
+) -> (& mut [u8], & mut [u8]) {
     let (plaintext_and_tag, nonce_and_free) =
         data.split_at_mut(plaintext_and_tag_and_nonce_len - nonce_len);
     let (nonce, _) = nonce_and_free.split_at_mut(nonce_len);
