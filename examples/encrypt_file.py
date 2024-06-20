@@ -71,7 +71,7 @@ def delete_dir(path):
 
 if __name__ == "__main__":
     try:
-        tmp_dir = create_directory_in_home("Cipher_tmp")
+        tmp_dir = create_directory_in_home("rencrypt_tmp")
         fin = tmp_dir + "/" + "fin"
         fout = tmp_dir + "/" + "fout.enc"
         create_file_with_size(fin, 10 * 1024 * 1024)
@@ -92,18 +92,19 @@ if __name__ == "__main__":
         munlock(key)
 
         plaintext_len = chunk_len
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
-        aad = b"AAD"
+        # use some random per file in additional authenticated data to prevent blocks from being swapped between files
+        aad = os.urandom(16)
 
         # encrypt
         print("encryping...")
         with open(fout, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fin, buf[:plaintext_len]):
-                ciphertext_len = cipher.encrypt(buf, read, i, aad)
+                ciphertext_len = cipher.seal_in_place(buf, read, i, aad)
                 file_out.write(buf[:ciphertext_len])
                 i += 1
             file_out.flush()
@@ -114,7 +115,7 @@ if __name__ == "__main__":
         with open(tmp, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fout, buf):
-                plaintext_len2 = cipher.decrypt(buf, read, i, aad)
+                plaintext_len2 = cipher.open_in_place(buf, read, i, aad)
                 file_out.write(buf[:plaintext_len2])
                 i += 1
             file_out.flush()

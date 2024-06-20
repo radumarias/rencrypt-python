@@ -104,7 +104,7 @@ def encrypt(block_len):
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
-    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
     plaintext = bytearray(os.urandom(plaintext_len))
@@ -115,7 +115,7 @@ def encrypt(block_len):
     for i in range(3):
         a = datetime.datetime.now()
 
-        cipher.encrypt(buf, plaintext_len, i, aad)
+        cipher.seal_in_place(buf, plaintext_len, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -133,7 +133,7 @@ def encrypt_from(block_len):
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
-    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
     plaintext = bytearray(os.urandom(plaintext_len))
@@ -143,7 +143,7 @@ def encrypt_from(block_len):
     for i in range(3):
         a = datetime.datetime.now()
 
-        cipher.encrypt_from(plaintext, buf, i, aad)
+        cipher.seal_in_place_from(plaintext, buf, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -165,10 +165,11 @@ def encrypt_file(path_in, path_out):
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = chunk_len
-    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
-    aad = b"AAD"
+    # use some random per file in additional authenticated data to prevent blocks from being swapped between files
+    aad = os.urandom(16)
 
     deltas = []
     for _ in range(3):
@@ -179,7 +180,7 @@ def encrypt_file(path_in, path_out):
         with open(path_out, "wb", buffering=chunk_len + 28) as file_out:
             i = 0
             for read in read_file_in_chunks(path_in, buf[:plaintext_len]):
-                ciphertext_len = cipher.encrypt(buf, read, i, aad)
+                ciphertext_len = cipher.seal_in_place(buf, read, i, aad)
                 file_out.write(buf[:ciphertext_len])
                 i += 1
             file_out.flush()
@@ -203,7 +204,7 @@ def decrypt(block_len):
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
-    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
     plaintext = bytearray(os.urandom(plaintext_len))
@@ -212,11 +213,11 @@ def decrypt(block_len):
     deltas = []
     for i in range(3):
         cipher.copy_slice(plaintext, buf[:plaintext_len])
-        ciphertext_len = cipher.encrypt(buf, plaintext_len, i, aad)
+        ciphertext_len = cipher.seal_in_place(buf, plaintext_len, i, aad)
 
         a = datetime.datetime.now()
 
-        plaintext_len = cipher.decrypt(buf, ciphertext_len, i, aad)
+        plaintext_len = cipher.open_in_place(buf, ciphertext_len, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -236,7 +237,7 @@ def decrypt_from(block_len):
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
-    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
     plaintext = bytearray(os.urandom(plaintext_len))
@@ -245,12 +246,12 @@ def decrypt_from(block_len):
     deltas = []
     for i in range(3):
         cipher.copy_slice(plaintext, buf[:plaintext_len])
-        ciphertext_len = cipher.encrypt(buf, plaintext_len, i, aad)
+        ciphertext_len = cipher.seal_in_place(buf, plaintext_len, i, aad)
         ciphertext = buf[:ciphertext_len]
 
         a = datetime.datetime.now()
 
-        plaintext_len = cipher.decrypt_from(ciphertext, buf, i, aad)
+        plaintext_len = cipher.open_in_place_from(ciphertext, buf, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -272,10 +273,11 @@ def decrypt_file(plaintext_file, ciphertext_file):
     chunk_len = 256 * 1024
 
     plaintext_len = chunk_len
-    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
-    aad = b"AAD"
+    # use some random per file in additional authenticated data to prevent blocks from being swapped between files
+    aad = os.urandom(16)
 
     tmp = ciphertext_file + ".dec"
 
@@ -284,7 +286,7 @@ def decrypt_file(plaintext_file, ciphertext_file):
     with open(ciphertext_file, "wb", buffering=plaintext_len) as file_out:
         i = 0
         for read in read_file_in_chunks(plaintext_file, buf[:plaintext_len]):
-            ciphertext_len = cipher.encrypt(buf, read, i, aad)
+            ciphertext_len = cipher.seal_in_place(buf, read, i, aad)
             file_out.write(buf[:ciphertext_len])
             i += 1
         file_out.flush()
@@ -298,7 +300,7 @@ def decrypt_file(plaintext_file, ciphertext_file):
         with open(tmp, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(ciphertext_file, buf):
-                plaintext_len2 = cipher.decrypt(buf, read, i, aad)
+                plaintext_len2 = cipher.open_in_place(buf, read, i, aad)
                 file_out.write(buf[:plaintext_len2])
                 i += 1
             file_out.flush()
@@ -324,7 +326,7 @@ def encrypt_speed_per_mb(block_len):
     cipher = Cipher(cipher_meta, key)
 
     plaintext_len = block_len
-    ciphertext_len = cipher.ciphertext_len(plaintext_len)
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
     buf = np.array([0] * ciphertext_len, dtype=np.uint8)
 
     plaintext = bytearray(os.urandom(plaintext_len))
@@ -335,7 +337,7 @@ def encrypt_speed_per_mb(block_len):
     for i in range(10000):
         a = datetime.datetime.now()
 
-        cipher.encrypt(buf, plaintext_len, i, aad)
+        cipher.seal_in_place(buf, plaintext_len, i, aad)
 
         b = datetime.datetime.now()
         delta = b - a
@@ -345,7 +347,7 @@ def encrypt_speed_per_mb(block_len):
     print(f"| {block_len/1024/1024} | {block_len/1024/1024/average} |")
 
 
-tmp_dir = create_directory_in_home("Cipher_tmp")
+tmp_dir = create_directory_in_home("rencrypt_tmp")
 sizes_mb = [
     0.03125,
     0.0625,

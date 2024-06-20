@@ -83,7 +83,7 @@ class TestStringMethods(unittest.TestCase):
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
@@ -96,16 +96,16 @@ class TestStringMethods(unittest.TestCase):
         # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
-        ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
+        ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad)
         buf[:ciphertext_len]
 
         # decrypt it
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
         # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
-        plaintext_len = cipher.decrypt(buf, ciphertext_len, 42, aad)
+        plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad)
         plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
-        
+
         zeroize1(plaintext)
         zeroize1(buf)
         munlock(plaintext)
@@ -122,7 +122,7 @@ class TestStringMethods(unittest.TestCase):
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
@@ -135,15 +135,96 @@ class TestStringMethods(unittest.TestCase):
         # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
-        ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
+        ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad)
 
         # decrypt it
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
         # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
-        plaintext_len = cipher.decrypt(buf, ciphertext_len, 42, aad)
+        plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad)
         plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
+
+        zeroize1(plaintext)
+        zeroize1(buf)
+        munlock(plaintext)
+        munlock(buf)
+
+    def test_encrypt_nonce_aes(self):
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        mlock(key)
+        cipher_meta.generate_key(key)
+        munlock(key)
+        cipher = Cipher(cipher_meta, key)
+
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        mlock(buf)
+
+        # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
+        # but for the sake of example we will allocate and copy the data
+        plaintext = bytearray(os.urandom(plaintext_len))
+        mlock(plaintext)
+        aad = b"AAD"
+        nonce = os.urandom(cipher_meta.nonce_len())
+        # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
+        # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
+        cipher.copy_slice(plaintext, buf)
+        # encrypt it, this will encrypt in-place the data in the buffer
+        ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad, nonce)
+        buf[:ciphertext_len]
+
+        # decrypt it
+        # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
+        # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
+        plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad)
+        plaintext2 = buf[:plaintext_len]
+        self.assertEqual(plaintext, plaintext2)
+
+        zeroize1(plaintext)
+        zeroize1(buf)
+        munlock(plaintext)
+        munlock(buf)
+
+    def test_encrypt_no_block_index_and_aad_aes(self):
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        mlock(key)
+        cipher_meta.generate_key(key)
+        munlock(key)
+        cipher = Cipher(cipher_meta, key)
+
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        mlock(buf)
+
+        # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
+        # but for the sake of example we will allocate and copy the data
+        plaintext = bytearray(os.urandom(plaintext_len))
+        mlock(plaintext)
         
+        # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
+        # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
+        cipher.copy_slice(plaintext, buf)
+        # encrypt it, this will encrypt in-place the data in the buffer
+        ciphertext_len = cipher.seal_in_place(buf, plaintext_len)
+        buf[:ciphertext_len]
+
+        # decrypt it
+        # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
+        # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
+        plaintext_len = cipher.open_in_place(buf, ciphertext_len)
+        plaintext2 = buf[:plaintext_len]
+        self.assertEqual(plaintext, plaintext2)
+
         zeroize1(plaintext)
         zeroize1(buf)
         munlock(plaintext)
@@ -161,7 +242,7 @@ class TestStringMethods(unittest.TestCase):
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
@@ -170,19 +251,19 @@ class TestStringMethods(unittest.TestCase):
         aad = b"AAD"
 
         # encrypt it, after this will have the ciphertext in the buffer
-        ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
+        ciphertext_len = cipher.seal_in_place_from(plaintext, buf, 42, aad)
         cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
-        plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
+        plaintext_len = cipher.open_in_place_from(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
-        
+
         zeroize1(plaintext)
         zeroize1(buf)
         munlock(plaintext)
         munlock(buf)
-    
+
     def test_encrypt_from_chacha(self):
         cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)
         key_len = cipher_meta.key_len()
@@ -195,7 +276,7 @@ class TestStringMethods(unittest.TestCase):
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
@@ -204,22 +285,89 @@ class TestStringMethods(unittest.TestCase):
         aad = b"AAD"
 
         # encrypt it, after this will have the ciphertext in the buffer
-        ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
+        ciphertext_len = cipher.seal_in_place_from(plaintext, buf, 42, aad)
         cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
-        plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
+        plaintext_len = cipher.open_in_place_from(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         self.assertEqual(plaintext, plaintext2)
-        
+
         zeroize1(plaintext)
         zeroize1(buf)
         munlock(plaintext)
         munlock(buf)
-    
-    
+
+    def test_encrypt_from_nonce_aes(self):
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        mlock(key)
+        cipher_meta.generate_key(key)
+        munlock(key)
+        cipher = Cipher(cipher_meta, key)
+
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        mlock(buf)
+
+        plaintext = bytearray(os.urandom(plaintext_len))
+        mlock(plaintext)
+        aad = b"AAD"
+        nonce = os.urandom(cipher_meta.nonce_len())
+
+        # encrypt it, after this will have the ciphertext in the buffer
+        ciphertext_len = cipher.seal_in_place_from(plaintext, buf, 42, aad, nonce)
+        cipertext = bytes(buf[:ciphertext_len])
+
+        # decrypt it
+        plaintext_len = cipher.open_in_place_from(cipertext, buf, 42, aad)
+        plaintext2 = buf[:plaintext_len]
+        self.assertEqual(plaintext, plaintext2)
+
+        zeroize1(plaintext)
+        zeroize1(buf)
+        munlock(plaintext)
+        munlock(buf)
+
+    def test_encrypt_from_no_block_index_and_aad_aes(self):
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        mlock(key)
+        cipher_meta.generate_key(key)
+        munlock(key)
+        cipher = Cipher(cipher_meta, key)
+
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        mlock(buf)
+
+        plaintext = bytearray(os.urandom(plaintext_len))
+        mlock(plaintext)
+
+        # encrypt it, after this will have the ciphertext in the buffer
+        ciphertext_len = cipher.seal_in_place_from(plaintext, buf)
+        cipertext = bytes(buf[:ciphertext_len])
+
+        # decrypt it
+        plaintext_len = cipher.open_in_place_from(cipertext, buf)
+        plaintext2 = buf[:plaintext_len]
+        self.assertEqual(plaintext, plaintext2)
+
+        zeroize1(plaintext)
+        zeroize1(buf)
+        munlock(plaintext)
+        munlock(buf)
+
     def test_encrypt_file_aes(self):
-        tmp_dir = create_directory_in_home("Cipher_tmp")
+        tmp_dir = create_directory_in_home("rencrypt_tmp")
         fin = tmp_dir + "/" + "fin"
         fout = tmp_dir + "/" + "fout.enc"
         create_file_with_size(fin, 42 * 1024 * 1024)
@@ -233,21 +381,22 @@ class TestStringMethods(unittest.TestCase):
         cipher_meta.generate_key(key)
         munlock(key)
         cipher = Cipher(cipher_meta, key)
-        
+
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = chunk_len
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
-        aad = b"AAD"
+        # use some random per file in additional authenticated data to prevent blocks from being swapped between files
+        aad = os.urandom(16)
 
         # encrypt
         with open(fout, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fin, buf[:plaintext_len]):
-                ciphertext_len = cipher.encrypt(buf, read, i, aad)
+                ciphertext_len = cipher.seal_in_place(buf, read, i, aad)
                 file_out.write(buf[:ciphertext_len])
                 i += 1
             file_out.flush()
@@ -257,18 +406,18 @@ class TestStringMethods(unittest.TestCase):
         with open(tmp, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fout, buf):
-                plaintext_len2 = cipher.decrypt(buf, read, i, aad)
+                plaintext_len2 = cipher.open_in_place(buf, read, i, aad)
                 file_out.write(buf[:plaintext_len2])
                 i += 1
             file_out.flush()
 
         compare_files_by_hash(fin, tmp)
-        
+
         zeroize1(buf)
         munlock(buf)
 
     def test_encrypt_file_chacha(self):
-        tmp_dir = create_directory_in_home("Cipher_tmp")
+        tmp_dir = create_directory_in_home("rencrypt_tmp")
         fin = tmp_dir + "/" + "fin"
         fout = tmp_dir + "/" + "fout.enc"
         create_file_with_size(fin, 42 * 1024 * 1024)
@@ -282,20 +431,22 @@ class TestStringMethods(unittest.TestCase):
         cipher_meta.generate_key(key)
         munlock(key)
         cipher = Cipher(cipher_meta, key)
-        
+
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = chunk_len
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
-        aad = b"AAD"
+        
+        # use some random per file in additional authenticated data to prevent blocks from being swapped between files
+        aad = os.urandom(16)
 
         # encrypt
         with open(fout, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fin, buf[:plaintext_len]):
-                ciphertext_len = cipher.encrypt(buf, read, i, aad)
+                ciphertext_len = cipher.seal_in_place(buf, read, i, aad)
                 file_out.write(buf[:ciphertext_len])
                 i += 1
             file_out.flush()
@@ -305,13 +456,13 @@ class TestStringMethods(unittest.TestCase):
         with open(tmp, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fout, buf):
-                plaintext_len2 = cipher.decrypt(buf, read, i, aad)
+                plaintext_len2 = cipher.open_in_place(buf, read, i, aad)
                 file_out.write(buf[:plaintext_len2])
                 i += 1
             file_out.flush()
 
         compare_files_by_hash(fin, tmp)
-        
+
         zeroize1(buf)
         munlock(buf)
 

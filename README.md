@@ -30,6 +30,7 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 
 **Block size and duration in seconds**
+
 <table>
     <thead>
         <tr>
@@ -165,6 +166,7 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-file.png?raw=true)
 
 **File size and duration in seconds**
+
 <table>
     <thead>
         <tr>
@@ -324,10 +326,14 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 There are two ways in which you can use the lib, the first one is a bit faster, the second offers a bit more flexible way to use it sacrificing a bit of performance.
 
-1. **With a buffer in memory**: using `encrypt()`/`decrypt()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
+1. **With a buffer in memory**: using `seal_in_place()`/`open_in_place()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
 **The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slices that reference to underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len + tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
 If you can directly collect the data to that buffer, like `BufferedReader.read_into()`, **this is the preffered way to go**.
-2. **From some bytes into the buffer**: using `encrypt_into()`/`decrypt_into()`, when you have some arbitrary data that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in the buffer. This is a bit slower, especially for large data, because it first needs to copy the bytes to the buffer.
+2. **From some bytes into the buffer**: using `seal_in_place_from()`/`open_in_place_from()`, when you have some arbitrary data that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in the buffer. This is a bit slower, especially for large data, because it first needs to copy the bytes to the buffer.
+
+`block_index`, `aad` and `nonce` are optional.
+
+On each encrypt operation (`seal_in_place*()`) it will generate a cryptographically secure random nonce using `ChaCha20`. You can also provide your own nonce, there is an example below.
 
 ## Encryption provider
 
@@ -335,8 +341,11 @@ You will notice in the examples we initiate the `Cipher` from something like thi
 
 # Security
 
-**For security reasons it's a good practice to lock the memory with `mlock()` in which you keep sensitive data like passwords or encrryption keys, or any other plaintext sensitive content. Also it's important to zeroize the data when not used anymore.**  
-**In the case of [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write) you need to zeroize the memory before forking the child process.**  
+- **When encrypting more than one block you should provide `block_index` as it's more secure because it ensures the order of the blocks was not changed in ciphertexts.**
+- **When you encrypt files it's more secure to generate a random number per file and include that in AAD, this will prevent ciphertext blocks from being swapped between files.**
+- **For security reasons it's a good practice to lock the memory with `mlock()` in which you keep sensitive data like passwords or encrryption keys, or any other plaintext sensitive content. Also it's important to zeroize the data when not used anymore.**  
+- **In the case of [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write) you need to zeroize the memory before forking the child process.**  
+
 In the examples below you will see how to do it.
 
 # Examples
@@ -345,13 +354,11 @@ You can see more in [examples](https://github.com/radumarias/rencrypt-python/tre
 
 ## Encrypt and decrypt with a buffer in memory
 
-`encrypt()`/`decrypt()`
+`seal_in_place()`/`open_in_place()`
 
 This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
 
 ```python
-# This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
-
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1, mlock, munlock
@@ -376,7 +383,7 @@ if __name__ == "__main__":
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
         mlock(buf)
@@ -393,7 +400,7 @@ if __name__ == "__main__":
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
         print("encryping...")
-        ciphertext_len = cipher.encrypt(buf, plaintext_len, 42, aad)
+        ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad)
         cipertext = buf[:ciphertext_len]
         # you can do something with the ciphertext
 
@@ -401,7 +408,7 @@ if __name__ == "__main__":
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
         # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
         print("decryping...")
-        plaintext_len = cipher.decrypt(buf, ciphertext_len, 42, aad)
+        plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
         mlock(plaintext2)
@@ -418,7 +425,79 @@ if __name__ == "__main__":
         print("bye!")
 ```
 
-You can use other ciphers like `cipher = Cipher.ChaCha20Poly1305`.
+You can use other ciphers like `cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
+
+You can also provide your own nonce that you can generate based on your contraints.
+
+```python
+from rencrypt import Cipher, CipherMeta, RingAlgorithm
+import os
+from zeroize import zeroize1, mlock, munlock
+import numpy as np
+
+
+if __name__ == "__main__":
+    try:
+        # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        key_len = cipher_meta.key_len()
+        key = bytearray(key_len)
+        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        mlock(key)
+        cipher_meta.generate_key(key)
+        # The key is copied and the input key is zeroized for security reasons.
+        # The copied key will also be zeroized when the object is dropped.
+        cipher = Cipher(cipher_meta, key)
+        # it was zeroized we can unlock it
+        munlock(key)
+
+        # we create a buffer based on plaintext block len of 4096
+        # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+        plaintext_len = 4096
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
+        buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+        # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
+        mlock(buf)
+
+        aad = b"AAD"
+        # create our own nonce
+        nonce = os.urandom(cipher_meta.nonce_len())
+
+        # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
+        # but for the sake of example we will allocate and copy the data
+        plaintext = bytearray(os.urandom(plaintext_len))
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        mlock(plaintext)
+        # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
+        # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
+        cipher.copy_slice(plaintext, buf)
+        # encrypt it, this will encrypt in-place the data in the buffer
+        # provide our own nonce
+        print("encryping...")
+        ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad, nonce)
+        cipertext = buf[:ciphertext_len]
+        # you can do something with the ciphertext
+
+        # decrypt it
+        # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
+        # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
+        print("decryping...")
+        plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad)
+        plaintext2 = buf[:plaintext_len]
+        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        mlock(plaintext2)
+        assert plaintext == plaintext2
+
+    finally:
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+        zeroize1(plaintext)
+        zeroize1(buf)
+
+        munlock(buf)
+        munlock(plaintext)
+
+        print("bye!")
+```
 
 ## Encrypt and decrypt a file
 
@@ -496,7 +575,7 @@ def delete_dir(path):
 
 if __name__ == "__main__":
     try:
-        tmp_dir = create_directory_in_home("Cipher_tmp")
+        tmp_dir = create_directory_in_home("rencrypt_tmp")
         fin = tmp_dir + "/" + "fin"
         fout = tmp_dir + "/" + "fout.enc"
         create_file_with_size(fin, 10 * 1024 * 1024)
@@ -517,7 +596,7 @@ if __name__ == "__main__":
         munlock(key)
 
         plaintext_len = chunk_len
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
@@ -528,7 +607,7 @@ if __name__ == "__main__":
         with open(fout, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fin, buf[:plaintext_len]):
-                ciphertext_len = cipher.encrypt(buf, read, i, aad)
+                ciphertext_len = cipher.seal_in_place(buf, read, i, aad)
                 file_out.write(buf[:ciphertext_len])
                 i += 1
             file_out.flush()
@@ -539,7 +618,7 @@ if __name__ == "__main__":
         with open(tmp, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fout, buf):
-                plaintext_len2 = cipher.decrypt(buf, read, i, aad)
+                plaintext_len2 = cipher.open_in_place(buf, read, i, aad)
                 file_out.write(buf[:plaintext_len2])
                 i += 1
             file_out.flush()
@@ -592,7 +671,7 @@ if __name__ == "__main__":
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
         mlock(buf)
@@ -605,12 +684,12 @@ if __name__ == "__main__":
 
         # encrypt it, after this will have the ciphertext in the buffer
         print("encryping...")
-        ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
+        ciphertext_len = cipher.seal_in_place_from(plaintext, buf, 42, aad)
         cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
         print("decryping...")
-        plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
+        plaintext_len = cipher.open_in_place_from(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
         mlock(plaintext2)

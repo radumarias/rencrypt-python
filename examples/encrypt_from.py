@@ -25,7 +25,7 @@ if __name__ == "__main__":
         # we create a buffer based on plaintext block len of 4096
         # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
         plaintext_len = 4096
-        ciphertext_len = cipher.ciphertext_len(plaintext_len)
+        ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
         mlock(buf)
@@ -38,12 +38,12 @@ if __name__ == "__main__":
 
         # encrypt it, after this will have the ciphertext in the buffer
         print("encryping...")
-        ciphertext_len = cipher.encrypt_from(plaintext, buf, 42, aad)
+        ciphertext_len = cipher.seal_in_place_from(plaintext, buf, 42, aad)
         cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
         print("decryping...")
-        plaintext_len = cipher.decrypt_from(cipertext, buf, 42, aad)
+        plaintext_len = cipher.open_in_place_from(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
         mlock(plaintext2)
