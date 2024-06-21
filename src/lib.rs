@@ -562,12 +562,15 @@ mod tests {
     #[test]
     fn test_seal_and_open_in_place() {
         for alg in RingAlgorithm::iter() {
+            println!("RingAlgorithm {:?}", alg);
             test_seal_and_open_in_place_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
+            println!("RustCryptoAlgorithm {:?}", alg);
             test_seal_and_open_in_place_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
+            println!("SodiumoxideAlgorithm {:?}", alg);
             test_seal_and_open_in_place_inner(Sodiumoxide { alg });
         }
     }
@@ -575,12 +578,15 @@ mod tests {
     #[test]
     fn test_seal_and_open_in_place_nonce() {
         for alg in RingAlgorithm::iter() {
+            println!("RingAlgorithm {:?}", alg);
             test_seal_and_open_in_place_nonce_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
+            println!("RustCryptoAlgorithm {:?}", alg);
             test_seal_and_open_in_place_nonce_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
+            println!("SodiumoxideAlgorithm {:?}", alg);
             test_seal_and_open_in_place_nonce_inner(Sodiumoxide { alg });
         }
     }
@@ -588,12 +594,15 @@ mod tests {
     #[test]
     fn test_encrypt_no_block_index() {
         for alg in RingAlgorithm::iter() {
+            println!("RingAlgorithm {:?}", alg);
             test_encrypt_no_block_index_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
+            println!("RustCryptoAlgorithm {:?}", alg);
             test_encrypt_no_block_index_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
+            println!("SodiumoxideAlgorithm {:?}", alg);
             test_encrypt_no_block_index_inner(Sodiumoxide { alg });
         }
     }
@@ -601,12 +610,15 @@ mod tests {
     #[test]
     fn test_encrypt_no_aad() {
         for alg in RingAlgorithm::iter() {
+            println!("RingAlgorithm {:?}", alg);
             test_encrypt_no_aad_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
+            println!("RustCryptoAlgorithm {:?}", alg);
             test_encrypt_no_aad_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
+            println!("SodiumoxideAlgorithm {:?}", alg);
             test_encrypt_no_aad_inner(Sodiumoxide { alg });
         }
     }
@@ -614,12 +626,15 @@ mod tests {
     #[test]
     fn test_seal_and_open_in_place_file() {
         for alg in RingAlgorithm::iter() {
+            println!("RingAlgorithm {:?}", alg);
             test_seal_and_open_in_place_file_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
+            println!("RustCryptoAlgorithm {:?}", alg);
             test_seal_and_open_in_place_file_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
+            println!("SodiumoxideAlgorithm {:?}", alg);
             test_seal_and_open_in_place_file_inner(Sodiumoxide { alg });
         }
     }
