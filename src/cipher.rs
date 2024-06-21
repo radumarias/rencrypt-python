@@ -15,6 +15,7 @@ use crate::cipher::ring::RingCipher;
 use crate::cipher::sodiumoxide::SodiumoxideCipher;
 use crate::crypto;
 
+mod orion;
 pub(crate) mod ring;
 pub(crate) mod rust_crypto;
 pub(crate) mod sodiumoxide;

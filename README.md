@@ -363,6 +363,14 @@ enum CipherMeta {
 }
 ```
 
+- `Ring`: Based on [ring](https://crates.io/crates/ring) crate. ring is focused on the implementation, testing, and optimization of a core set of cryptographic operations exposed via an easy-to-use (and hard-to-misuse) API. ring exposes a Rust API and is written in a hybrid of Rust, C, and assembly language.  
+  Particular attention is being paid to making it easy to build and integrate ring into applications and higher-level frameworks, and to ensuring that ring works optimally on small devices, and eventually microcontrollers, to support Internet of Things (IoT) applications.  
+  Most of the C and assembly language code in ring comes from BoringSSL, and BoringSSL is derived from OpenSSL. ring merges changes from BoringSSL regularly. Also, several changes that were developed for ring have been contributed to and integrated into BoringSSL.
+- `RustCrypto`: Based on [RustCrypto](https://github.com/RustCrypto/AEADs) collection of Authenticated Encryption with Associated Data (AEAD) algorithms written in pure Rust. AEADs are high-level symmetric encryption primitives which defend against a wide range of potential attacks (i.e. IND-CCA3).
+- `Sodiumoxide`: Based on [sodiumoxide](https://crates.io/crates/sodiumoxide) crate which aims to provide a type-safe and efficient Rust binding that's just as easy to use.  
+  [`NaCl`](https://nacl.cr.yp.to) (pronounced "salt") is a new easy-to-use high-speed software library for network communication, encryption, decryption, signatures, etc. NaCl's goal is to provide all of the core operations needed to build higher-level cryptographic tools. Of course, other libraries already exist for these core operations. NaCl advances the state of the art by improving security, by improving usability, and by improving speed.  
+  [Sodium](https://github.com/jedisct1/libsodium) is a portable, cross-compilable, installable, packageable fork of NaCl (based on the latest released upstream version nacl-20110221), with a compatible API.
+
 ### Algorithms
 
 ```rust
@@ -371,7 +379,9 @@ enum RingAlgorithm {
     Aes128Gcm,
     Aes256Gcm,
 }
+```
 
+```rust
 enum RustCryptoAlgorithm {
     ChaCha20Poly1305,
     XChaCha20Poly1305,
@@ -391,7 +401,9 @@ enum RustCryptoAlgorithm {
     Aes128Eax,
     Aes256Eax,
 }
+```
 
+```rust
 enum SodiumoxideAlgorithm {
     ChaCha20Poly1305,
     ChaCha20Poly1305Ieft,
