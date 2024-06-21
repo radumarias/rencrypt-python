@@ -71,6 +71,8 @@ def delete_dir(path):
 
 
 def seal_and_open_in_place(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     mlock(key)
@@ -111,6 +113,8 @@ def seal_and_open_in_place(this, cipher_meta):
 
 
 def seal_and_open_in_place_nonce(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     mlock(key)
@@ -152,6 +156,8 @@ def seal_and_open_in_place_nonce(this, cipher_meta):
 
 
 def seal_and_open_in_place_no_block_index_and_aad(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     mlock(key)
@@ -192,6 +198,8 @@ def seal_and_open_in_place_no_block_index_and_aad(this, cipher_meta):
 
 
 def seal_and_open_in_place_from(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     mlock(key)
@@ -226,6 +234,8 @@ def seal_and_open_in_place_from(this, cipher_meta):
 
 
 def seal_and_open_in_place_from_nonce(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     mlock(key)
@@ -261,6 +271,8 @@ def seal_and_open_in_place_from_nonce(this, cipher_meta):
 
 
 def seal_and_open_in_place_from_no_block_index_and_aad(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     mlock(key)
@@ -294,6 +306,8 @@ def seal_and_open_in_place_from_no_block_index_and_aad(this, cipher_meta):
 
 
 def seal_and_open_in_place_file(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
     tmp_dir = create_directory_in_home("rencrypt_tmp")
     fin = tmp_dir + "/" + "fin"
     fout = tmp_dir + "/" + "fout.enc"
@@ -338,6 +352,8 @@ def seal_and_open_in_place_file(this, cipher_meta):
         file_out.flush()
 
     this.assertEqual(compare_files_by_hash(fin, tmp), True)
+    
+    delete_dir(tmp_dir)
 
     zeroize1(buf)
     munlock(buf)
