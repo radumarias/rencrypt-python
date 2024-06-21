@@ -349,7 +349,55 @@ You will notice in the examples we initiate the `Cipher` from something like thi
 
 In the examples below you will see how to do it.
 
-# Ciphes (Algorithms)
+# Providers and Algorithms (Ciphes)
+
+## Availbale providers and algorithms
+
+### Providers
+
+```rust
+enum CipherMeta {
+    Ring { alg: RingAlgorithm },
+    RustCrypto { alg: RustCryptoAlgorithm },
+    Sodiumoxide { alg: SodiumoxideAlgorithm },
+}
+```
+
+### Algorithms
+
+```rust
+enum RingAlgorithm {
+    ChaCha20Poly1305,
+    Aes128Gcm,
+    Aes256Gcm,
+}
+
+enum RustCryptoAlgorithm {
+    ChaCha20Poly1305,
+    XChaCha20Poly1305,
+    Aes128Gcm,
+    Aes256Gcm,
+    Aes128GcmSiv,
+    Aes256GcmSiv,
+    Aes128Siv,
+    Aes256Siv,
+    Ascon128,
+    Ascon128a,
+    Ascon80pq,
+    DeoxysI128,
+    DeoxysI256,
+    DeoxysII128,
+    DeoxysII256,
+    Aes128Eax,
+    Aes256Eax,
+}
+
+enum SodiumoxideAlgorithm {
+    ChaCha20Poly1305,
+    ChaCha20Poly1305Ieft,
+    XChaCha20Poly1305Ieft,
+}
+```
 
 ## Audited
 

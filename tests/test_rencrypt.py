@@ -387,7 +387,7 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
         seal_and_open_in_place(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
         seal_and_open_in_place(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
-        seal_and_open_in_place(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        # seal_and_open_in_place(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
     def test_encrypt_nonce(self):
         seal_and_open_in_place_nonce(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -415,7 +415,7 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
         seal_and_open_in_place_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
         seal_and_open_in_place_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
-        seal_and_open_in_place_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        # seal_and_open_in_place_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
     def test_encrypt_no_block_index_and_aad(self):
         seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -443,7 +443,7 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
         seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
         seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        # seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
     def test_encrypt_from(self):
         seal_and_open_in_place_from(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -471,7 +471,7 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_from(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
         seal_and_open_in_place_from(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
         seal_and_open_in_place_from(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
-        seal_and_open_in_place_from(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        # seal_and_open_in_place_from(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
     def test_encrypt_from_nonce(self):
         seal_and_open_in_place_from_nonce(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -499,7 +499,7 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_from_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
         seal_and_open_in_place_from_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
         seal_and_open_in_place_from_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
-        seal_and_open_in_place_from_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        # seal_and_open_in_place_from_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
     def test_encrypt_from_no_block_index_and_aad(self):
         seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -527,7 +527,7 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
         seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
         seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        # seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
     def test_seal_and_open_in_place_file(self):
         seal_and_open_in_place_file(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -555,7 +555,7 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_file(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
         seal_and_open_in_place_file(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
         seal_and_open_in_place_file(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
-        seal_and_open_in_place_file(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        # seal_and_open_in_place_file(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
 
 if __name__ == "__main__":

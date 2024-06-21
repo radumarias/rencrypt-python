@@ -21,7 +21,7 @@ enum CipherInner {
     ChaCha20Poly1305(chacha20poly1305::Key),
     ChaCha20Poly1305Ietf(chacha20poly1305_ietf::Key),
     XChaCha20Poly1305Ietf(xchacha20poly1305_ietf::Key),
-    Aes256Gcm(aes256gcm::Aes256Gcm, aes256gcm::Key),
+    // Aes256Gcm(aes256gcm::Aes256Gcm, aes256gcm::Key),
 }
 
 pub struct SodiumoxideCipher {
@@ -44,11 +44,11 @@ impl SodiumoxideCipher {
             SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => CipherInner::XChaCha20Poly1305Ietf(
                 xchacha20poly1305_ietf::Key::from_slice(&key.borrow()).unwrap(),
             ),
-            SodiumoxideAlgorithm::Aes256Gcm => CipherInner::Aes256Gcm(
-                aes256gcm::Aes256Gcm::new()
-                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "cannot create cipher"))?,
-                aes256gcm::Key::from_slice(&key.borrow()).unwrap(),
-            ),
+            // SodiumoxideAlgorithm::Aes256Gcm => CipherInner::Aes256Gcm(
+            //     aes256gcm::Aes256Gcm::new()
+            //         .map_err(|_| io::Error::new(io::ErrorKind::Other, "cannot create cipher"))?,
+            //     aes256gcm::Key::from_slice(&key.borrow()).unwrap(),
+            // ),
         };
 
         Ok(Self {
@@ -139,18 +139,17 @@ impl Cipher for SodiumoxideCipher {
                     key,
                 )
                 .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
-            }
-            CipherInner::Aes256Gcm(cipher, key) => {
-                cipher
-                    .open_detached(
-                        ciphertext,
-                        Some(&aad),
-                        &aes256gcm::Tag::from_slice(tag).unwrap(),
-                        &aes256gcm::Nonce::from_slice(nonce).unwrap(),
-                        key,
-                    )
-                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
-            }
+            } // CipherInner::Aes256Gcm(cipher, key) => {
+              //     cipher
+              //         .open_detached(
+              //             ciphertext,
+              //             Some(&aad),
+              //             &aes256gcm::Tag::from_slice(tag).unwrap(),
+              //             &aes256gcm::Nonce::from_slice(nonce).unwrap(),
+              //             key,
+              //         )
+              //         .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
+              // }
         };
 
         Ok(ciphertext)
@@ -167,8 +166,7 @@ pub(super) fn key_len(algorithm: SodiumoxideAlgorithm) -> usize {
         }
         SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
             sodiumoxide::crypto::aead::xchacha20poly1305_ietf::KEYBYTES
-        }
-        SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::KEYBYTES,
+        } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::KEYBYTES,
     }
 }
 
@@ -182,8 +180,7 @@ pub(super) fn nonce_len(algorithm: SodiumoxideAlgorithm) -> usize {
         }
         SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
             sodiumoxide::crypto::aead::xchacha20poly1305_ietf::NONCEBYTES
-        }
-        SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::NONCEBYTES,
+        } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::NONCEBYTES,
     }
 }
 
@@ -197,8 +194,7 @@ pub(super) fn tag_len(algorithm: SodiumoxideAlgorithm) -> usize {
         }
         SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
             sodiumoxide::crypto::aead::xchacha20poly1305_ietf::TAGBYTES
-        }
-        SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::TAGBYTES,
+        } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::TAGBYTES,
     }
 }
 
@@ -240,17 +236,16 @@ fn seal_in_place<'a>(
                 key,
             )
             .0
-        }
-        CipherInner::Aes256Gcm(cipher, key) => {
-            cipher
-                .seal_detached(
-                    plaintext,
-                    Some(&aad),
-                    &aes256gcm::Nonce::from_slice(nonce).unwrap(),
-                    key,
-                )
-                .0
-        }
+        } // CipherInner::Aes256Gcm(cipher, key) => {
+          //     cipher
+          //         .seal_detached(
+          //             plaintext,
+          //             Some(&aad),
+          //             &aes256gcm::Nonce::from_slice(nonce).unwrap(),
+          //             key,
+          //         )
+          //         .0
+          // }
     };
 
     tag_out.copy_from_slice(&tag);

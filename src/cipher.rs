@@ -76,10 +76,11 @@ pub enum RustCryptoAlgorithm {
 #[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
 pub enum SodiumoxideAlgorithm {
     ChaCha20Poly1305,
+    #[default]
     ChaCha20Poly1305Ieft,
     XChaCha20Poly1305Ieft,
-    #[default]
-    Aes256Gcm,
+    // #[default]
+    // Aes256Gcm,
 }
 
 #[pyclass]
