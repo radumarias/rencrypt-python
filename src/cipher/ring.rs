@@ -57,7 +57,8 @@ impl Cipher for RingCipher {
 
         tag_out.copy_from_slice(tag.as_ref());
         nonce_out.map(|n| {
-            n.copy_from_slice(nonce.unwrap_or(&self.nonce_sequence.lock().unwrap().last_nonce))
+            n.copy_from_slice(nonce.unwrap_or(&self.nonce_sequence.lock().unwrap().last_nonce));
+            n
         });
 
         Ok(plaintext)
@@ -84,13 +85,12 @@ impl Cipher for RingCipher {
     }
 }
 
-fn create_sealing_key(
-    alg: RingAlgorithm,
-    key: &SecretVec<u8>,
-) -> io::Result<(
+type CreateSealingKeyResult = io::Result<(
     SealingKey<HybridNonceSequenceWrapper>,
     Arc<Mutex<HybridNonceSequence>>,
-)> {
+)>;
+
+fn create_sealing_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> CreateSealingKeyResult {
     // Create a new NonceSequence type which generates nonces
     let nonce_seq = Arc::new(Mutex::new(HybridNonceSequence::new(
         get_algorithm(alg).nonce_len(),
@@ -107,10 +107,9 @@ fn create_sealing_key(
     Ok((sealing_key, nonce_sequence))
 }
 
-fn create_opening_key(
-    alg: RingAlgorithm,
-    key: &SecretVec<u8>,
-) -> io::Result<(OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>)> {
+type CreateOpeningKeyResult = io::Result<(OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>)>;
+
+fn create_opening_key(alg: RingAlgorithm, key: &SecretVec<u8>) -> CreateOpeningKeyResult {
     let last_nonce = Arc::new(Mutex::new(vec![0_u8; get_algorithm(alg).nonce_len()]));
     let unbound_key = UnboundKey::new(get_algorithm(alg), &key.borrow())
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid key"))?;

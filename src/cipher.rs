@@ -286,7 +286,7 @@ pub(crate) fn create_aad(block_index: Option<u64>, aad: Option<&[u8]>) -> Vec<u8
         if let Some(aad) = aad {
             len += aad.len();
         }
-        if let Some(_) = block_index {
+        if block_index.is_some() {
             len += 8;
         }
         len
