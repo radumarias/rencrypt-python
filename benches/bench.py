@@ -1,7 +1,7 @@
 import datetime
 import errno
 import os
-from rencrypt import Cipher, CipherMeta, RingAlgorithm
+from rencrypt import Cipher, CipherMeta, RingAlgorithm, RustCryptoAlgorithm, SodiumoxideAlgorithm
 import hashlib
 from pathlib import Path
 import shutil
@@ -97,7 +97,7 @@ def silentremove(filename):
 
 
 def encrypt(block_len):
-    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     cipher_meta.generate_key(key)
@@ -126,7 +126,7 @@ def encrypt(block_len):
 
 
 def encrypt_from(block_len):
-    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     cipher_meta.generate_key(key)
@@ -158,7 +158,7 @@ def encrypt_file(path_in, path_out):
 
     key = os.urandom(32)
 
-    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     cipher_meta.generate_key(key)
@@ -197,7 +197,7 @@ def encrypt_file(path_in, path_out):
 
 
 def decrypt(block_len):
-    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     cipher_meta.generate_key(key)
@@ -230,7 +230,7 @@ def decrypt(block_len):
 
 
 def decrypt_from(block_len):
-    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     cipher_meta.generate_key(key)
@@ -264,7 +264,7 @@ def decrypt_from(block_len):
 
 
 def decrypt_file(plaintext_file, ciphertext_file):
-    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     cipher_meta.generate_key(key)
@@ -319,7 +319,7 @@ def decrypt_file(plaintext_file, ciphertext_file):
 
 
 def encrypt_speed_per_mb(block_len):
-    cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+    cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
     key_len = cipher_meta.key_len()
     key = bytearray(key_len)
     cipher_meta.generate_key(key)

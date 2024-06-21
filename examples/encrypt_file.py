@@ -79,7 +79,7 @@ if __name__ == "__main__":
         chunk_len = 256 * 1024
 
         # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
-        cipher_meta = CipherMeta.Ring(RingAlgorithm.AES256GCM)
+        cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
         # for security reasons we lock the memory of the key so it won't be swapped to disk

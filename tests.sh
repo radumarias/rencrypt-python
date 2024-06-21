@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 pytest
 python examples/encrypt.py
 python examples/encrypt_from.py

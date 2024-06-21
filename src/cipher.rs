@@ -7,11 +7,17 @@ use pyo3::prelude::PyByteArrayMethods;
 use pyo3::types::PyByteArray;
 use pyo3::{pyclass, pymethods, Bound};
 use rand_core::RngCore;
+use secrets::SecretVec;
+use serde::{Deserialize, Serialize};
+use strum_macros::{Display, EnumIter};
 
-use crate::cipher::CipherMeta::Ring;
+use crate::cipher::ring::RingCipher;
+use crate::cipher::sodiumoxide::SodiumoxideCipher;
 use crate::crypto;
 
 pub(crate) mod ring;
+pub(crate) mod rust_crypto;
+pub(crate) mod sodiumoxide;
 
 #[allow(dead_code)]
 pub(crate) trait Cipher: Send + Sync {
@@ -35,24 +41,53 @@ pub(crate) trait Cipher: Send + Sync {
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
 pub enum RingAlgorithm {
     ChaCha20Poly1305,
-    AES256GCM,
+    Aes128Gcm,
+    #[default]
+    Aes256Gcm,
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
 pub enum RustCryptoAlgorithm {
     ChaCha20Poly1305,
-    AES256GCM,
+    XChaCha20Poly1305,
+    Aes128Gcm,
+    #[default]
+    Aes256Gcm,
+    Aes128GcmSiv,
+    Aes256GcmSiv,
+    Aes128Siv,
+    Aes256Siv,
+    Ascon128,
+    Ascon128a,
+    Ascon80pq,
+    DeoxysI128,
+    DeoxysI256,
+    DeoxysII128,
+    DeoxysII256,
+    Aes128Eax,
+    Aes256Eax,
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
+pub enum SodiumoxideAlgorithm {
+    ChaCha20Poly1305,
+    ChaCha20Poly1305Ieft,
+    XChaCha20Poly1305Ieft,
+    #[default]
+    Aes256Gcm,
+}
+
+#[pyclass]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize)]
 pub enum CipherMeta {
     Ring { alg: RingAlgorithm },
-    // RustCrypto { alg: RustCryptoAlgorithm },
+    RustCrypto { alg: RustCryptoAlgorithm },
+    Sodiumoxide { alg: SodiumoxideAlgorithm },
 }
 
 #[pymethods]
@@ -80,21 +115,28 @@ impl CipherMeta {
         plaintext_len + overhead(*self)
     }
 
-    /// Max length (in bytes) of the plaintext that can be encrypted before becoming unsafe.
-    #[must_use]
-    #[allow(clippy::use_self)]
-    pub const fn max_plaintext_len(&self) -> usize {
-        match self {
-            Ring {
-                alg: RingAlgorithm::ChaCha20Poly1305,
-            } => (2_usize.pow(32) - 1) * 64,
-            Ring {
-                alg: RingAlgorithm::AES256GCM,
-            } => (2_usize.pow(39) - 256) / 8,
-            // RustCrypto { alg: RustCryptoAlgorithm::ChaCha20Poly1305 } => (2_usize.pow(32) - 1) * 64,
-            // RustCrypto { alg: RustCryptoAlgorithm::AES256GCM } => (2_usize.pow(39) - 256) / 8,
-        }
-    }
+    // /// Max length (in bytes) of the plaintext that can be encrypted before becoming unsafe.
+    // #[must_use]
+    // #[allow(clippy::use_self)]
+    // pub const fn max_plaintext_len(&self) -> usize {
+    //     match self {
+    //         Ring {
+    //             alg: RingAlgorithm::ChaCha20Poly1305,
+    //         } => (2_usize.pow(32) - 1) * 64,
+    //         Ring {
+    //             alg: RingAlgorithm::Aes256Gcm,
+    //         } => (2_usize.pow(39) - 256) / 8,
+    //         RustCrypto {
+    //             alg: RustCryptoAlgorithm::ChaCha20Poly1305,
+    //         } => (2_usize.pow(32) - 1) * 64,
+    //         RustCrypto {
+    //             alg: RustCryptoAlgorithm::Aes256Gcm,
+    //         } => (2_usize.pow(39) - 256) / 8,
+    //         RustCrypto {
+    //             alg: RustCryptoAlgorithm::Aes128Gcm,
+    //         } => {}
+    //     }
+    // }
 
     pub fn generate_key(&self, key: &Bound<'_, PyByteArray>) {
         let mut rng = crypto::create_rng();
@@ -104,24 +146,27 @@ impl CipherMeta {
     }
 }
 
+fn key_len(cipher_meta: CipherMeta) -> usize {
+    match cipher_meta {
+        CipherMeta::Ring { alg } => ring::key_len(alg),
+        CipherMeta::RustCrypto { alg } => rust_crypto::key_len(alg),
+        CipherMeta::Sodiumoxide { alg } => sodiumoxide::key_len(alg),
+    }
+}
+
 fn nonce_len(cipher_meta: CipherMeta) -> usize {
     match cipher_meta {
-        Ring { alg } => ring::get_algorithm(alg).nonce_len(),
-        // RustCrypto { alg } => (alg).nonce_len(),
+        CipherMeta::Ring { alg } => ring::nonce_len(alg),
+        CipherMeta::RustCrypto { alg } => rust_crypto::nonce_len(alg),
+        CipherMeta::Sodiumoxide { alg } => sodiumoxide::nonce_len(alg),
     }
 }
 
 fn tag_len(cipher_meta: CipherMeta) -> usize {
     match cipher_meta {
-        Ring { alg } => ring::get_algorithm(alg).tag_len(),
-        // RustCrypto { alg } => (alg).tag_len(),
-    }
-}
-
-fn key_len(cipher_meta: CipherMeta) -> usize {
-    match cipher_meta {
-        Ring { alg } => ring::get_algorithm(alg).key_len(),
-        // RustCrypto { alg } => (alg).key_len(),
+        CipherMeta::Ring { alg } => ring::tag_len(alg),
+        CipherMeta::RustCrypto { alg } => rust_crypto::tag_len(alg),
+        CipherMeta::Sodiumoxide { alg } => sodiumoxide::tag_len(alg),
     }
 }
 
@@ -232,5 +277,39 @@ impl HybridNonceSequenceWrapper {
 impl NonceSequence for HybridNonceSequenceWrapper {
     fn advance(&mut self) -> Result<Nonce, Unspecified> {
         self.inner.lock().unwrap().advance()
+    }
+}
+
+pub(crate) fn create_aad(block_index: Option<u64>, aad: Option<&[u8]>) -> Vec<u8> {
+    let len = {
+        let mut len = 0;
+        if let Some(aad) = aad {
+            len += aad.len();
+        }
+        if let Some(_) = block_index {
+            len += 8;
+        }
+        len
+    };
+    let mut aad2 = vec![0_u8; len];
+    let mut offset = 0;
+    aad.map(|aad| {
+        aad2[..aad.len()].copy_from_slice(aad);
+        offset += aad.len();
+        aad
+    });
+    block_index.map(|block_index| {
+        let block_index_bytes = block_index.to_le_bytes();
+        aad2[offset..].copy_from_slice(&block_index_bytes);
+        block_index
+    });
+    aad2
+}
+
+pub fn new_cipher(cipher_meta: CipherMeta, key: &SecretVec<u8>) -> io::Result<Box<dyn Cipher>> {
+    match cipher_meta {
+        CipherMeta::Ring { alg } => Ok(Box::new(RingCipher::new(alg, key)?)),
+        CipherMeta::RustCrypto { alg } => rust_crypto::new(alg, key),
+        CipherMeta::Sodiumoxide { alg } => Ok(Box::new(SodiumoxideCipher::new(alg, key)?)),
     }
 }

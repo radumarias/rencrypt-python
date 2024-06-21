@@ -1,13 +1,15 @@
-use crate::cipher::{
-    Cipher, ExistingNonceSequence, HybridNonceSequence, HybridNonceSequenceWrapper,
-};
-use crate::RingAlgorithm;
-use ring::aead::{
-    Aad, BoundKey, OpeningKey, SealingKey, UnboundKey, AES_256_GCM, CHACHA20_POLY1305,
-};
-use secrets::SecretVec;
 use std::io;
 use std::sync::{Arc, Mutex};
+
+use ring::aead::{
+    Aad, BoundKey, OpeningKey, SealingKey, UnboundKey, AES_128_GCM, AES_256_GCM, CHACHA20_POLY1305,
+};
+use secrets::SecretVec;
+
+use crate::cipher::{
+    create_aad, Cipher, ExistingNonceSequence, HybridNonceSequence, HybridNonceSequenceWrapper,
+};
+use crate::RingAlgorithm;
 
 pub struct RingCipher {
     sealing_key: Arc<Mutex<SealingKey<HybridNonceSequenceWrapper>>>,
@@ -17,16 +19,16 @@ pub struct RingCipher {
 }
 
 impl RingCipher {
-    pub fn new(algorithm: RingAlgorithm, key: &SecretVec<u8>) -> Self {
-        let (sealing_key, nonce_sequence) = create_ring_sealing_key(algorithm, key);
-        let (opening_key, last_nonce) = create_ring_opening_key(algorithm, key);
+    pub fn new(algorithm: RingAlgorithm, key: &SecretVec<u8>) -> io::Result<Self> {
+        let (sealing_key, nonce_sequence) = create_sealing_key(algorithm, key)?;
+        let (opening_key, last_nonce) = create_opening_key(algorithm, key)?;
 
-        Self {
+        Ok(Self {
             sealing_key: Arc::new(Mutex::new(sealing_key)),
             nonce_sequence,
             last_nonce,
             opening_key: Arc::new(Mutex::new(opening_key)),
-        }
+        })
     }
 }
 
@@ -44,6 +46,7 @@ impl Cipher for RingCipher {
         let mut sealing_key = self.sealing_key.lock().unwrap();
 
         let aad = create_aad(block_index, aad);
+        let aad = Aad::<Vec<u8>>::from(aad);
         if let Some(nonce) = nonce {
             self.nonce_sequence.lock().unwrap().next_nonce = Some(nonce.to_vec());
         }
@@ -53,13 +56,9 @@ impl Cipher for RingCipher {
             .unwrap();
 
         tag_out.copy_from_slice(tag.as_ref());
-        if let Some(nonce_out) = nonce_out {
-            if let Some(nonce) = nonce {
-                nonce_out.copy_from_slice(nonce);
-            } else {
-                nonce_out.copy_from_slice(&self.nonce_sequence.lock().unwrap().last_nonce);
-            }
-        }
+        nonce_out.map(|n| {
+            n.copy_from_slice(nonce.unwrap_or(&self.nonce_sequence.lock().unwrap().last_nonce))
+        });
 
         Ok(plaintext)
     }
@@ -76,6 +75,7 @@ impl Cipher for RingCipher {
 
         self.last_nonce.lock().unwrap().copy_from_slice(nonce);
         let aad = create_aad(block_index, aad);
+        let aad = Aad::<Vec<u8>>::from(aad);
 
         let plaintext = opening_key
             .open_within(aad, ciphertext_and_tag, 0..)
@@ -84,13 +84,13 @@ impl Cipher for RingCipher {
     }
 }
 
-fn create_ring_sealing_key(
+fn create_sealing_key(
     alg: RingAlgorithm,
     key: &SecretVec<u8>,
-) -> (
+) -> io::Result<(
     SealingKey<HybridNonceSequenceWrapper>,
     Arc<Mutex<HybridNonceSequence>>,
-) {
+)> {
     // Create a new NonceSequence type which generates nonces
     let nonce_seq = Arc::new(Mutex::new(HybridNonceSequence::new(
         get_algorithm(alg).nonce_len(),
@@ -98,55 +98,43 @@ fn create_ring_sealing_key(
     let nonce_sequence = nonce_seq.clone();
     let nonce_wrapper = HybridNonceSequenceWrapper::new(nonce_seq.clone());
     // Create a new AEAD key without a designated role or nonce sequence
-    let unbound_key = UnboundKey::new(get_algorithm(alg), &key.borrow()).unwrap();
+    let unbound_key = UnboundKey::new(get_algorithm(alg), &key.borrow())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid key"))?;
 
     // Create a new AEAD key for encrypting and signing ("sealing"), bound to a nonce sequence
     // The SealingKey can be used multiple times, each time a new nonce will be used
     let sealing_key = SealingKey::new(unbound_key, nonce_wrapper);
-    (sealing_key, nonce_sequence)
+    Ok((sealing_key, nonce_sequence))
 }
 
-fn create_ring_opening_key(
+fn create_opening_key(
     alg: RingAlgorithm,
     key: &SecretVec<u8>,
-) -> (OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>) {
+) -> io::Result<(OpeningKey<ExistingNonceSequence>, Arc<Mutex<Vec<u8>>>)> {
     let last_nonce = Arc::new(Mutex::new(vec![0_u8; get_algorithm(alg).nonce_len()]));
-    let unbound_key = UnboundKey::new(get_algorithm(alg), &key.borrow()).unwrap();
+    let unbound_key = UnboundKey::new(get_algorithm(alg), &key.borrow())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid key"))?;
     let nonce_sequence = ExistingNonceSequence::new(last_nonce.clone());
     let opening_key = OpeningKey::new(unbound_key, nonce_sequence);
-    (opening_key, last_nonce)
+    Ok((opening_key, last_nonce))
 }
 
-fn create_aad(block_index: Option<u64>, aad: Option<&[u8]>) -> Aad<Vec<u8>> {
-    let aad = {
-        let len = {
-            let mut len = 0;
-            if let Some(aad) = aad {
-                len += aad.len();
-            }
-            if let Some(_) = block_index {
-                len += 8;
-            }
-            len
-        };
-        let mut aad2 = vec![0_u8; len];
-        let mut offset = 0;
-        if let Some(aad) = aad {
-            aad2[..aad.len()].copy_from_slice(aad);
-            offset += aad.len();
-        }
-        if let Some(block_index) = block_index {
-            let block_index_bytes = block_index.to_le_bytes();
-            aad2[offset..].copy_from_slice(&block_index_bytes);
-        }
-        Aad::<Vec<u8>>::from(aad2)
-    };
-    aad
-}
-
-pub fn get_algorithm(alg: RingAlgorithm) -> &'static ring::aead::Algorithm {
+fn get_algorithm(alg: RingAlgorithm) -> &'static ring::aead::Algorithm {
     match alg {
         RingAlgorithm::ChaCha20Poly1305 => &CHACHA20_POLY1305,
-        RingAlgorithm::AES256GCM => &AES_256_GCM,
+        RingAlgorithm::Aes128Gcm => &AES_128_GCM,
+        RingAlgorithm::Aes256Gcm => &AES_256_GCM,
     }
+}
+
+pub(super) fn key_len(algorithm: RingAlgorithm) -> usize {
+    get_algorithm(algorithm).key_len()
+}
+
+pub(super) fn nonce_len(algorithm: RingAlgorithm) -> usize {
+    get_algorithm(algorithm).nonce_len()
+}
+
+pub(super) fn tag_len(algorithm: RingAlgorithm) -> usize {
+    get_algorithm(algorithm).tag_len()
 }
