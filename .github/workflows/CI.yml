@@ -52,7 +52,7 @@ jobs:
         run: cargo test --all --all-features --release -- nocapture
 
       - name: Bench
-        run: cargo bech --all --all-features
+        run: cargo bench --all --all-features
 
   test_py_linux:
     runs-on: ubuntu-latest
