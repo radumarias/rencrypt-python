@@ -77,7 +77,7 @@ jobs:
     - name: Run tests
       run: |
         source .env/bin/activate
-        ./tests.sh
+        ./test.sh
 
   test_py_macos:
     runs-on: macos-latest
@@ -102,7 +102,7 @@ jobs:
     - name: Run tests
       run: |
         source .env/bin/activate
-        ./tests.sh
+        ./test.sh
 
   test_py_windows:
     runs-on: windows-latest
@@ -127,7 +127,7 @@ jobs:
     - name: Run tests
       run: |
         .env\Scripts\activate
-        cmd /c tests.bat
+        cmd /c test.bat
         
   build_linux:
     needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
