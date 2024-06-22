@@ -1,7 +1,5 @@
-set "e=|| exit /b"
-
-pytest %e%
-python examples/encrypt.py %e%
-python examples/encrypt_from.py %e%
-python examples/encrypt_file.py %e%
-python benches/bench.py %e%
+pytest|| exit /b
+python examples/encrypt.py || exit /b
+python examples/encrypt_from.py || exit /b
+python examples/encrypt_file.py || exit /b
+python benches/bench.py || exit /b
