@@ -36,5 +36,5 @@ dynamic = ["version"]
 features = ["pyo3/extension-module"]
 
 [project.urls]
-Homepage = "https://github.com/radumarias/Cipher-python"
-Issues = "https://github.com/radumarias/Cipher-python/issues"
+Homepage = "https://github.com/radumarias/rencrypt-python"
+Issues = "https://github.com/radumarias/rencrypt-python/issues"
