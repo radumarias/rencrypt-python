@@ -4,7 +4,7 @@
 [![CI](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml)
 
 > [!WARNING]  
-> **This crate hasn't been audited, but it's mostly a wrapper over several libs like `ring` (well known and audited library),`RustCrypto` (`AES-GCM` and `ChaCha20Poly1305` ciphers are audited) and other which are not audited, so in principle at least the primitives should offer a similar level of security.**
+> **This crate hasn't been audited, but it's mostly a wrapper over several libs like `ring` (well known and audited library),`RustCrypto` (`AES-GCM` and `ChaCha20Poly1305` ciphers are audited) but also others which are NOT audited, so in principle at least the primitives should offer a similar level of security.**
 
 A Python encryption library implemented in Rust. It supports `AEAD` with varius ciphers. It uses [ring](https://crates.io/crates/ring), [RustCrypto](https://crates.io/crates/aead) (and derivates), [sodiumoxide](https://crates.io/crates/sodiumoxide) and [orion](https://crates.io/crates/orion) to handle encryption.  
 If offers slightly higher speed compared to other Python libs, especially for small chunks of data (especially the `Ring` provider with `AES-GCM` ciphers). The API also tries to be easy to use but it's more optimized for speed than usability.

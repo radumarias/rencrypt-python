@@ -7,7 +7,7 @@ name = "rencrypt"
 authors = [
   { name="Radu Marias", email="radumarias@gmail.com" },
 ]
-description = "A Python encryption library implemented in Rust. It supports AEAD with AES-GCM and ChaCha20Poly1305. It uses ring crate to handle encryption."
+description = "A Python encryption library implemented in Rust. It supports AEAD with various ciphers. It uses multiple providers to handle encryption."
 readme = "README.md"
 keywords = ["cryptography", "encryption", "security", "rust", "speed", "aead", "cipher"]
 requires-python = ">=3.7"
