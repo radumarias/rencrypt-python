@@ -4,18 +4,16 @@
 [![CI](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml)
 
 > [!WARNING]  
-> **This crate hasn't been audited, but it wraps `ring` crate (well known and audited library) and `RustCrypto` (`AES-GCM` and `ChaCha20Poly1305` ciphers are audited) and `libsodium`, so in principle at least the primitives should offer a similar level of security.  
-> This is still under development. Please do not use it with sensitive data just yet. Please wait for a stable release and maybe an audit.  
-> It's mostly ideal for experimental and learning projects.**
+> **This crate hasn't been audited, but it's mostly a wrapper over several libs like `ring` (well known and audited library),`RustCrypto` (`AES-GCM` and `ChaCha20Poly1305` ciphers are audited) and other which are not audited, so in principle at least the primitives should offer a similar level of security.**
 
-A Python encryption library implemented in Rust. It supports `AEAD` with varius ciphers. It uses [ring](https://crates.io/crates/ring), [RustCrypto](https://crates.io/crates/aead) (and derivates) and [libsodium](https://crates.io/crates/libsodium-sys) to handle encryption.  
-If offers slightly higher speed compared to other Python libs, especially for small chunks of data (especially the `Ring` provider). The API also tries to be easy to use but it's more optimized for speed than usability.
+A Python encryption library implemented in Rust. It supports `AEAD` with varius ciphers. It uses [ring](https://crates.io/crates/ring), [RustCrypto](https://crates.io/crates/aead) (and derivates), [sodiumoxide](https://crates.io/crates/sodiumoxide) and [orion](https://crates.io/crates/orion) to handle encryption.  
+If offers slightly higher speed compared to other Python libs, especially for small chunks of data (especially the `Ring` provider with `AES-GCM` ciphers). The API also tries to be easy to use but it's more optimized for speed than usability.
 
 So if you want to use a vast variaety of ciphers and/or achieve the highest possible encryption speed, consider giving it a try.
 
 # Benchmark
 
-Some benchmarks comparing it to [PyFLocker](https://github.com/arunanshub/pyflocker) which from my benchmarks is the fastest among other Python libs like `cryptography`, `NaCl` (`libsodium`), `PyCryptodome`
+Some benchmarks comparing it to [PyFLocker](https://github.com/arunanshub/pyflocker) which from my benchmarks is the fastest among other Python libs like `cryptography`, `NaCl` (`libsodium`), `PyCryptodome`.
 
 ## Buffer in memory
 
@@ -333,12 +331,12 @@ If you can directly collect the data to that buffer, like `BufferedReader.read_i
 
 `block_index`, `aad` and `nonce` are optional.
 
-On each encrypt operation (`seal_in_place*()`) it will generate a cryptographically secure random nonce using `ChaCha20`. You can also provide your own nonce, there is an example below.
+If `nonce` is not provided, on each encrypt operation (`seal_in_place*()`) it will generate a cryptographically secure random nonce using `ChaCha20`. You can also provide your own nonce, there is an example below.
 
 # Security
 
 - **The total number of invocations of the encryption functions (`seal_in_place*()`) shall not exceed `2^32`, including all nonce lengths and all instances of `Cipher` with the given key. Following this guideline, only `4,294,967,296` messages with random nonces can be encrypted under a given key. While this bound is high, it's possible to encounter in practice, and systems which might reach it should consider alternatives to purely random nonces, like a counter or a combination of a random nonce + counter.**
-- **When encrypting more than one block you should provide `block_index` as it's more secure because it ensures the order of the blocks was not changed in ciphertexts.**
+- **When encrypting more than one block you should provide `block_index` as it's more secure because it ensures the order of the blocks was not changed in ciphertext.**
 - **When you encrypt files it's more secure to generate a random number per file and include that in AAD, this will prevent ciphertext blocks from being swapped between files.**
 - **For security reasons it's a good practice to lock the memory with `mlock()` in which you keep sensitive data like passwords or encrryption keys, or any other plaintext sensitive content. Also it's important to zeroize the data when not used anymore.**  
 - **In the case of [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write) you need to zeroize the memory before forking the child process.**  
@@ -347,7 +345,7 @@ In the examples below you will see how to do it.
 
 # Encryption providers and algorithms (ciphes)
 
-You will notice in the examples we initiate the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption provider. The last part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier might expose specific algorithms.
+You will notice in the examples we create the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption provider. The last part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier might expose specific algorithms.
 
 ## Providers
 
@@ -1110,8 +1108,7 @@ We performed `10.000` encryption operations for each size varying from `1KB` to 
 
 # For the future
 
-- Add more `AES` ciphers like `AES128-GCM` and `AES-GCM-SIV`
-- Add other encryption providers like [RustCrypto](https://github.com/RustCrypto/traits) and [libsodium](https://crates.io/crates/sodiumoxide)
+- Generating key from password (`KDF`)
 - Maybe add support for `RSA` and `Elliptic-curve cryptography`
 - Saving and loading keys from file
 
