@@ -9,7 +9,7 @@ authors = [
 ]
 description = "A Python encryption library implemented in Rust. It supports AEAD with AES-GCM and ChaCha20Poly1305. It uses ring crate to handle encryption."
 readme = "README.md"
-keywords = ["cryptography", "encryption", "security", "rust", "speed"]
+keywords = ["cryptography", "encryption", "security", "rust", "speed", "aead", "cipher"]
 requires-python = ">=3.7"
 classifiers = [
     "Development Status :: 4 - Beta",
