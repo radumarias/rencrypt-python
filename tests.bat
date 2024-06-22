@@ -1,7 +1,7 @@
-@echo off
+set "e=|| exit /b"
 
-pytest
-python examples/encrypt.py
-python examples/encrypt_from.py
-python examples/encrypt_file.py
-python benches/bench.py
+pytest %e%
+python examples/encrypt.py %e%
+python examples/encrypt_from.py %e%
+python examples/encrypt_file.py %e%
+python benches/bench.py %e%
