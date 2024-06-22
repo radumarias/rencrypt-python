@@ -343,7 +343,7 @@ If `nonce` is not provided, on each encrypt operation (`seal_in_place*()`) it wi
 
 In the examples below you will see how to do it.
 
-# Encryption providers and algorithms (ciphes)
+# Encryption providers and algorithms (ciphers)
 
 You will notice in the examples we create the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption provider. The last part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier might expose specific algorithms.
 
