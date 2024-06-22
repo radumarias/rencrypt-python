@@ -127,21 +127,7 @@ jobs:
     - name: Run tests
       run: |
         .env\Scripts\activate
-        
-        pytest
-        if ($LASTEXITCODE) { exit $LASTEXITCODE }
-        
-        python examples/encrypt.py
-        if ($LASTEXITCODE) { exit $LASTEXITCODE }
-        
-        python examples/encrypt_from.py
-        if ($LASTEXITCODE) { exit $LASTEXITCODE }
-        
-        python examples/encrypt_file.py
-        if ($LASTEXITCODE) { exit $LASTEXITCODE }
-        
-        python benches/bench.py
-        if ($LASTEXITCODE) { exit $LASTEXITCODE }
+        cmd /c tests.bat
         
   build_linux:
     needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
