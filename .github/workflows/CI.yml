@@ -127,11 +127,12 @@ jobs:
     - name: Run tests
       run: |
         .env\Scripts\activate
-        pytest
-        python examples/encrypt.py
-        python examples/encrypt_from.py
-        python examples/encrypt_file.py
-        python benches/bench.py
+        set "e=|| exit /b"
+        pytest %e%
+        python examples/encrypt.py %e%
+        python examples/encrypt_from.py %e%
+        python examples/encrypt_file.py %e%
+        python benches/bench.py %e%
         
   build_linux:
     needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
