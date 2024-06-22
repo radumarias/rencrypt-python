@@ -41,7 +41,7 @@ impl Cipher for RingCipher {
         nonce: Option<&[u8]>,
         tag_out: &mut [u8],
         nonce_out: Option<&mut [u8]>,
-    ) -> io::Result<&'a [u8]> {
+    ) -> io::Result<&'a mut [u8]> {
         // lock here to keep the lock while encrypting
         let mut sealing_key = self.sealing_key.lock().unwrap();
 
@@ -53,7 +53,12 @@ impl Cipher for RingCipher {
 
         let tag = sealing_key
             .seal_in_place_separate_tag(aad, plaintext)
-            .unwrap();
+            .map_err(|err| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("encryption failed {err}"),
+                )
+            })?;
 
         tag_out.copy_from_slice(tag.as_ref());
         nonce_out.map(|n| {
@@ -80,7 +85,12 @@ impl Cipher for RingCipher {
 
         let plaintext = opening_key
             .open_within(aad, ciphertext_and_tag, 0..)
-            .unwrap();
+            .map_err(|err| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("decryption failed {err}"),
+                )
+            })?;
         Ok(plaintext)
     }
 }

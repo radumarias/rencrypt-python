@@ -1,6 +1,7 @@
 use std::io;
 use std::sync::{Arc, Mutex};
 
+use crate::cipher::orion::OrionCipher;
 use ::ring::aead::{Nonce, NonceSequence};
 use ::ring::error::Unspecified;
 use pyo3::prelude::PyByteArrayMethods;
@@ -30,7 +31,7 @@ pub(crate) trait Cipher: Send + Sync {
         nonce: Option<&[u8]>,
         tag_out: &mut [u8],
         nonce_out: Option<&mut [u8]>,
-    ) -> io::Result<&'a [u8]>;
+    ) -> io::Result<&'a mut [u8]>;
 
     fn open_in_place<'a>(
         &self,
@@ -85,11 +86,20 @@ pub enum SodiumoxideAlgorithm {
 }
 
 #[pyclass]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
+pub enum OrionAlgorithm {
+    #[default]
+    ChaCha20Poly1305,
+    XChaCha20Poly1305,
+}
+
+#[pyclass]
 #[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize)]
 pub enum CipherMeta {
     Ring { alg: RingAlgorithm },
     RustCrypto { alg: RustCryptoAlgorithm },
     Sodiumoxide { alg: SodiumoxideAlgorithm },
+    Orion { alg: OrionAlgorithm },
 }
 
 #[pymethods]
@@ -153,6 +163,7 @@ fn key_len(cipher_meta: CipherMeta) -> usize {
         CipherMeta::Ring { alg } => ring::key_len(alg),
         CipherMeta::RustCrypto { alg } => rust_crypto::key_len(alg),
         CipherMeta::Sodiumoxide { alg } => sodiumoxide::key_len(alg),
+        CipherMeta::Orion { alg } => orion::key_len(alg),
     }
 }
 
@@ -161,6 +172,7 @@ fn nonce_len(cipher_meta: CipherMeta) -> usize {
         CipherMeta::Ring { alg } => ring::nonce_len(alg),
         CipherMeta::RustCrypto { alg } => rust_crypto::nonce_len(alg),
         CipherMeta::Sodiumoxide { alg } => sodiumoxide::nonce_len(alg),
+        CipherMeta::Orion { alg } => orion::nonce_len(alg),
     }
 }
 
@@ -169,6 +181,7 @@ fn tag_len(cipher_meta: CipherMeta) -> usize {
         CipherMeta::Ring { alg } => ring::tag_len(alg),
         CipherMeta::RustCrypto { alg } => rust_crypto::tag_len(alg),
         CipherMeta::Sodiumoxide { alg } => sodiumoxide::tag_len(alg),
+        CipherMeta::Orion { alg } => orion::tag_len(alg),
     }
 }
 
@@ -313,5 +326,6 @@ pub fn new_cipher(cipher_meta: CipherMeta, key: &SecretVec<u8>) -> io::Result<Bo
         CipherMeta::Ring { alg } => Ok(Box::new(RingCipher::new(alg, key)?)),
         CipherMeta::RustCrypto { alg } => rust_crypto::new(alg, key),
         CipherMeta::Sodiumoxide { alg } => Ok(Box::new(SodiumoxideCipher::new(alg, key)?)),
+        CipherMeta::Orion { alg } => Ok(Box::new(OrionCipher::new(alg, key)?)),
     }
 }

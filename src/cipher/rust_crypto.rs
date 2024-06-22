@@ -48,7 +48,7 @@ impl<T: AeadInPlace + Send + Sync> Cipher for RustCryptoCipher<T> {
         nonce: Option<&[u8]>,
         tag_out: &mut [u8],
         nonce_out: Option<&mut [u8]>,
-    ) -> io::Result<&'a [u8]> {
+    ) -> io::Result<&'a mut [u8]> {
         if let Some(nonce) = nonce {
             seal_in_place(
                 &self.cipher,
@@ -109,87 +109,87 @@ pub fn new(algorithm: RustCryptoAlgorithm, key: &SecretVec<u8>) -> io::Result<Bo
     match algorithm {
         RustCryptoAlgorithm::ChaCha20Poly1305 => Ok(Box::new(RustCryptoCipher::new_inner(
             ChaCha20Poly1305::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::XChaCha20Poly1305 => Ok(Box::new(RustCryptoCipher::new_inner(
             XChaCha20Poly1305::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Aes128Gcm => Ok(Box::new(RustCryptoCipher::new_inner(
             Aes128Gcm::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Aes256Gcm => Ok(Box::new(RustCryptoCipher::new_inner(
             Aes256Gcm::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Aes128GcmSiv => Ok(Box::new(RustCryptoCipher::new_inner(
             Aes128GcmSiv::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Aes256GcmSiv => Ok(Box::new(RustCryptoCipher::new_inner(
             Aes256GcmSiv::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Aes128Siv => Ok(Box::new(RustCryptoCipher::new_inner(
             Aes128SivAead::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Aes256Siv => Ok(Box::new(RustCryptoCipher::new_inner(
             Aes256SivAead::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Ascon128 => Ok(Box::new(RustCryptoCipher::new_inner(
             Ascon128::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Ascon128a => Ok(Box::new(RustCryptoCipher::new_inner(
             Ascon128a::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Ascon80pq => Ok(Box::new(RustCryptoCipher::new_inner(
             Ascon80pq::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::DeoxysI128 => Ok(Box::new(RustCryptoCipher::new_inner(
             DeoxysI128::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::DeoxysI256 => Ok(Box::new(RustCryptoCipher::new_inner(
             DeoxysI256::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::DeoxysII128 => Ok(Box::new(RustCryptoCipher::new_inner(
             DeoxysII128::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::DeoxysII256 => Ok(Box::new(RustCryptoCipher::new_inner(
             DeoxysII256::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Aes128Eax => Ok(Box::new(RustCryptoCipher::new_inner(
             Aes128Eax::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
         RustCryptoAlgorithm::Aes256Eax => Ok(Box::new(RustCryptoCipher::new_inner(
             Aes256Eax::new_from_slice(&key.borrow())
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key"))?,
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid key length"))?,
             nonce_len(algorithm),
         ))),
     }
@@ -253,7 +253,7 @@ fn seal_in_place<'a, T: AeadInPlace + Send + Sync>(
     nonce: &[u8],
     tag_out: &mut [u8],
     nonce_out: Option<&mut [u8]>,
-) -> io::Result<&'a [u8]> {
+) -> io::Result<&'a mut [u8]> {
     let aad = cipher::create_aad(block_index, aad);
     let nonce2 = Nonce::<T>::from_slice(nonce);
 

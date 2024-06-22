@@ -1,65 +1,51 @@
-use crate::cipher::{self, Cipher, SodiumoxideAlgorithm};
+use crate::cipher::{self, Cipher, OrionAlgorithm};
 use crate::crypto;
+use orion::hazardous::aead;
 use rand_core::RngCore;
 use secrets::SecretVec;
-use sodiumoxide::crypto::aead::*;
 use std::cell::RefCell;
 use std::io;
 use std::sync::Mutex;
 
 thread_local! {
-    static NONCE: RefCell<Vec<u8>> = RefCell::new(vec![0;
-        chacha20poly1305::NONCEBYTES
-        .max(chacha20poly1305_ietf::NONCEBYTES)
-        .max(xchacha20poly1305_ietf::NONCEBYTES)
-        .max(aes256gcm::NONCEBYTES)
-    ]);
+    static NONCE: RefCell<Vec<u8>> = RefCell::new(vec![0; 24]);
 }
 
 #[derive(Debug)]
 enum CipherInner {
-    ChaCha20Poly1305(chacha20poly1305::Key),
-    ChaCha20Poly1305Ietf(chacha20poly1305_ietf::Key),
-    XChaCha20Poly1305Ietf(xchacha20poly1305_ietf::Key),
-    // Aes256Gcm(aes256gcm::Aes256Gcm, aes256gcm::Key),
+    ChaCha20Poly1305(aead::chacha20poly1305::SecretKey),
+    XChaCha20Poly1305(aead::xchacha20poly1305::SecretKey),
 }
 
-pub struct SodiumoxideCipher {
+pub struct OrionCipher {
     cipher: CipherInner,
     rng: Mutex<Box<dyn RngCore + Send + Sync>>,
-    nonce_len: usize,
+    algorithm: OrionAlgorithm,
 }
 
-impl SodiumoxideCipher {
-    pub fn new(algorithm: SodiumoxideAlgorithm, key: &SecretVec<u8>) -> io::Result<Self> {
+impl OrionCipher {
+    pub fn new(algorithm: OrionAlgorithm, key: &SecretVec<u8>) -> io::Result<Self> {
         let rng = Mutex::new(crypto::create_rng());
-        let nonce_len = nonce_len(algorithm);
         let cipher = match algorithm {
-            SodiumoxideAlgorithm::ChaCha20Poly1305 => CipherInner::ChaCha20Poly1305(
-                chacha20poly1305::Key::from_slice(&key.borrow()).unwrap(),
+            OrionAlgorithm::ChaCha20Poly1305 => CipherInner::ChaCha20Poly1305(
+                aead::chacha20poly1305::SecretKey::from_slice(&key.borrow())
+                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid key length"))?,
             ),
-            SodiumoxideAlgorithm::ChaCha20Poly1305Ieft => CipherInner::ChaCha20Poly1305Ietf(
-                chacha20poly1305_ietf::Key::from_slice(&key.borrow()).unwrap(),
+            OrionAlgorithm::XChaCha20Poly1305 => CipherInner::XChaCha20Poly1305(
+                aead::xchacha20poly1305::SecretKey::from_slice(&key.borrow())
+                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid key length"))?,
             ),
-            SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => CipherInner::XChaCha20Poly1305Ietf(
-                xchacha20poly1305_ietf::Key::from_slice(&key.borrow()).unwrap(),
-            ),
-            // SodiumoxideAlgorithm::Aes256Gcm => CipherInner::Aes256Gcm(
-            //     aes256gcm::Aes256Gcm::new()
-            //         .map_err(|_| io::Error::new(io::ErrorKind::Other, "cannot create cipher"))?,
-            //     aes256gcm::Key::from_slice(&key.borrow()).unwrap(),
-            // ),
         };
 
         Ok(Self {
             cipher,
             rng,
-            nonce_len,
+            algorithm,
         })
     }
 }
 
-impl Cipher for SodiumoxideCipher {
+impl Cipher for OrionCipher {
     fn seal_in_place<'a>(
         &self,
         plaintext: &'a mut [u8],
@@ -68,10 +54,11 @@ impl Cipher for SodiumoxideCipher {
         nonce: Option<&[u8]>,
         tag_out: &mut [u8],
         nonce_out: Option<&mut [u8]>,
-    ) -> io::Result<&'a [u8]> {
+    ) -> io::Result<&'a mut [u8]> {
         if let Some(nonce) = nonce {
             seal_in_place(
                 &self.cipher,
+                self.algorithm,
                 plaintext,
                 block_index,
                 aad,
@@ -85,13 +72,14 @@ impl Cipher for SodiumoxideCipher {
                 self.rng
                     .lock()
                     .unwrap()
-                    .fill_bytes(&mut nonce[..self.nonce_len]);
+                    .fill_bytes(&mut nonce[..nonce_len(self.algorithm)]);
                 seal_in_place(
                     &self.cipher,
+                    self.algorithm,
                     plaintext,
                     block_index,
                     aad,
-                    &nonce[..self.nonce_len],
+                    &nonce[..nonce_len(self.algorithm)],
                     tag_out,
                     nonce_out,
                 )
@@ -107,148 +95,88 @@ impl Cipher for SodiumoxideCipher {
         nonce: &[u8],
     ) -> io::Result<&'a mut [u8]> {
         let aad = cipher::create_aad(block_index, aad);
-        let (ciphertext, tag) = ciphertext_and_tag.split_at_mut(ciphertext_and_tag.len() - 16);
 
+        let mut out = vec![0; ciphertext_and_tag.len() - tag_len(self.algorithm)];
         match &self.cipher {
             CipherInner::ChaCha20Poly1305(key) => {
-                chacha20poly1305::open_detached(
-                    ciphertext,
-                    Some(&aad),
-                    &chacha20poly1305::Tag::from_slice(tag).unwrap(),
-                    &chacha20poly1305::Nonce::from_slice(nonce).unwrap(),
-                    key,
-                )
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
+                let nonce = aead::chacha20poly1305::Nonce::from_slice(nonce)
+                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid nonce length"))?;
+                aead::chacha20poly1305::open(key, &nonce, ciphertext_and_tag, Some(&aad), &mut out)
+                    .map_err(|err| {
+                        io::Error::new(io::ErrorKind::Other, format!("decryption failed {err}"))
+                    })?;
             }
-            CipherInner::ChaCha20Poly1305Ietf(key) => {
-                chacha20poly1305_ietf::open_detached(
-                    ciphertext,
-                    Some(&aad),
-                    &chacha20poly1305_ietf::Tag::from_slice(tag).unwrap(),
-                    &chacha20poly1305_ietf::Nonce::from_slice(nonce).unwrap(),
+            CipherInner::XChaCha20Poly1305(key) => {
+                let nonce = aead::xchacha20poly1305::Nonce::from_slice(nonce)
+                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid nonce length"))?;
+                aead::xchacha20poly1305::open(
                     key,
+                    &nonce,
+                    ciphertext_and_tag,
+                    Some(&aad),
+                    &mut out,
                 )
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
+                .map_err(|err| {
+                    io::Error::new(io::ErrorKind::Other, format!("decryption failed {err}"))
+                })?;
             }
-            CipherInner::XChaCha20Poly1305Ietf(key) => {
-                xchacha20poly1305_ietf::open_detached(
-                    ciphertext,
-                    Some(&aad),
-                    &xchacha20poly1305_ietf::Tag::from_slice(tag).unwrap(),
-                    &xchacha20poly1305_ietf::Nonce::from_slice(nonce).unwrap(),
-                    key,
-                )
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
-            } // CipherInner::Aes256Gcm(cipher, key) => {
-              //     cipher
-              //         .open_detached(
-              //             ciphertext,
-              //             Some(&aad),
-              //             &aes256gcm::Tag::from_slice(tag).unwrap(),
-              //             &aes256gcm::Nonce::from_slice(nonce).unwrap(),
-              //             key,
-              //         )
-              //         .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
-              // }
         };
+        let ciphertext = &mut ciphertext_and_tag[..out.len()];
+        ciphertext.copy_from_slice(&out);
 
-        Ok(ciphertext)
+        Ok(&mut ciphertext_and_tag[..out.len()])
     }
 }
 
-pub(super) fn key_len(algorithm: SodiumoxideAlgorithm) -> usize {
+pub(super) fn key_len(_: OrionAlgorithm) -> usize {
+    32
+}
+
+pub(super) fn nonce_len(algorithm: OrionAlgorithm) -> usize {
     match algorithm {
-        SodiumoxideAlgorithm::ChaCha20Poly1305 => {
-            sodiumoxide::crypto::aead::chacha20poly1305::KEYBYTES
-        }
-        SodiumoxideAlgorithm::ChaCha20Poly1305Ieft => {
-            sodiumoxide::crypto::aead::chacha20poly1305_ietf::KEYBYTES
-        }
-        SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
-            sodiumoxide::crypto::aead::xchacha20poly1305_ietf::KEYBYTES
-        } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::KEYBYTES,
+        OrionAlgorithm::ChaCha20Poly1305 => 12,
+        OrionAlgorithm::XChaCha20Poly1305 => 24,
     }
 }
 
-pub(super) fn nonce_len(algorithm: SodiumoxideAlgorithm) -> usize {
-    match algorithm {
-        SodiumoxideAlgorithm::ChaCha20Poly1305 => {
-            sodiumoxide::crypto::aead::chacha20poly1305::NONCEBYTES
-        }
-        SodiumoxideAlgorithm::ChaCha20Poly1305Ieft => {
-            sodiumoxide::crypto::aead::chacha20poly1305_ietf::NONCEBYTES
-        }
-        SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
-            sodiumoxide::crypto::aead::xchacha20poly1305_ietf::NONCEBYTES
-        } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::NONCEBYTES,
-    }
+pub(super) fn tag_len(_: OrionAlgorithm) -> usize {
+    16
 }
 
-pub(super) fn tag_len(algorithm: SodiumoxideAlgorithm) -> usize {
-    match algorithm {
-        SodiumoxideAlgorithm::ChaCha20Poly1305 => {
-            sodiumoxide::crypto::aead::chacha20poly1305::TAGBYTES
-        }
-        SodiumoxideAlgorithm::ChaCha20Poly1305Ieft => {
-            sodiumoxide::crypto::aead::chacha20poly1305_ietf::TAGBYTES
-        }
-        SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
-            sodiumoxide::crypto::aead::xchacha20poly1305_ietf::TAGBYTES
-        } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::TAGBYTES,
-    }
-}
-
+#[allow(clippy::too_many_arguments)]
 fn seal_in_place<'a>(
     cipher: &CipherInner,
+    algorithm: OrionAlgorithm,
     plaintext: &'a mut [u8],
     block_index: Option<u64>,
     aad: Option<&[u8]>,
     nonce: &[u8],
     tag_out: &mut [u8],
     nonce_out: Option<&mut [u8]>,
-) -> io::Result<&'a [u8]> {
+) -> io::Result<&'a mut [u8]> {
     let aad = cipher::create_aad(block_index, aad);
 
-    let tag = match cipher {
+    let mut out = vec![0; plaintext.len() + tag_len(algorithm)]; // ciphertext + tag
+    match cipher {
         CipherInner::ChaCha20Poly1305(key) => {
-            chacha20poly1305::seal_detached(
-                plaintext,
-                Some(&aad),
-                &chacha20poly1305::Nonce::from_slice(nonce).unwrap(),
-                key,
-            )
-            .0
+            let nonce = aead::chacha20poly1305::Nonce::from_slice(nonce)
+                .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid nonce length"))?;
+            aead::chacha20poly1305::seal(key, &nonce, plaintext, Some(&aad), &mut out).map_err(
+                |err| io::Error::new(io::ErrorKind::Other, format!("decryption failed {err}")),
+            )?;
         }
-        CipherInner::ChaCha20Poly1305Ietf(key) => {
-            chacha20poly1305_ietf::seal_detached(
-                plaintext,
-                Some(&aad),
-                &chacha20poly1305_ietf::Nonce::from_slice(nonce).unwrap(),
-                key,
-            )
-            .0
+        CipherInner::XChaCha20Poly1305(key) => {
+            let nonce = aead::xchacha20poly1305::Nonce::from_slice(nonce)
+                .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid nonce length"))?;
+            aead::xchacha20poly1305::seal(key, &nonce, plaintext, Some(&aad), &mut out).map_err(
+                |err| io::Error::new(io::ErrorKind::Other, format!("decryption failed {err}")),
+            )?;
         }
-        CipherInner::XChaCha20Poly1305Ietf(key) => {
-            xchacha20poly1305_ietf::seal_detached(
-                plaintext,
-                Some(&aad),
-                &xchacha20poly1305_ietf::Nonce::from_slice(nonce).unwrap(),
-                key,
-            )
-            .0
-        } // CipherInner::Aes256Gcm(cipher, key) => {
-          //     cipher
-          //         .seal_detached(
-          //             plaintext,
-          //             Some(&aad),
-          //             &aes256gcm::Nonce::from_slice(nonce).unwrap(),
-          //             key,
-          //         )
-          //         .0
-          // }
-    };
+    }
+    let (ciphertext, tag) = out.split_at(plaintext.len());
+    plaintext.copy_from_slice(ciphertext);
 
-    tag_out.copy_from_slice(&tag);
+    tag_out.copy_from_slice(tag);
     nonce_out.map(|nout| {
         nout.copy_from_slice(nonce);
         nout

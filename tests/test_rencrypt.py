@@ -4,7 +4,7 @@ import hashlib
 import io
 from pathlib import Path
 import shutil
-from rencrypt import Cipher, CipherMeta, RingAlgorithm, RustCryptoAlgorithm, SodiumoxideAlgorithm
+from rencrypt import Cipher, CipherMeta, RingAlgorithm, RustCryptoAlgorithm, SodiumoxideAlgorithm, OrionAlgorithm
 import os
 import unittest
 import numpy as np
@@ -155,7 +155,49 @@ def seal_and_open_in_place_nonce(this, cipher_meta):
     munlock(buf)
 
 
-def seal_and_open_in_place_no_block_index_and_aad(this, cipher_meta):
+def seal_and_open_in_place_no_block_index(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    mlock(key)
+    cipher_meta.generate_key(key)
+    munlock(key)
+    cipher = Cipher(cipher_meta, key)
+
+    # we create a buffer based on plaintext block len of 4096
+    # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+    plaintext_len = 256 * 1024
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+    mlock(buf)
+
+    # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
+    # but for the sake of example we will allocate and copy the data
+    plaintext = bytearray(os.urandom(plaintext_len))
+    mlock(plaintext)
+    aad = b"AAD"
+
+    # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
+    # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
+    cipher.copy_slice(plaintext, buf)
+    # encrypt it, this will encrypt in-place the data in the buffer
+    ciphertext_len = cipher.seal_in_place(buf, plaintext_len, None, aad)
+    buf[:ciphertext_len]
+
+    # decrypt it
+    # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
+    # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
+    plaintext_len = cipher.open_in_place(buf, ciphertext_len, None, aad)
+    plaintext2 = buf[:plaintext_len]
+    this.assertEqual(plaintext, plaintext2)
+
+    zeroize1(plaintext)
+    zeroize1(buf)
+    munlock(plaintext)
+    munlock(buf)
+
+def seal_and_open_in_place_no_aad(this, cipher_meta):
     print(f"Testing {cipher_meta} {cipher_meta.alg}")
     
     key_len = cipher_meta.key_len()
@@ -181,13 +223,13 @@ def seal_and_open_in_place_no_block_index_and_aad(this, cipher_meta):
     # cipher.copy_slice takes bytes as input, cipher.copy_slice takes bytearray
     cipher.copy_slice(plaintext, buf)
     # encrypt it, this will encrypt in-place the data in the buffer
-    ciphertext_len = cipher.seal_in_place(buf, plaintext_len)
+    ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42)
     buf[:ciphertext_len]
 
     # decrypt it
     # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
     # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
-    plaintext_len = cipher.open_in_place(buf, ciphertext_len)
+    plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42)
     plaintext2 = buf[:plaintext_len]
     this.assertEqual(plaintext, plaintext2)
 
@@ -270,7 +312,42 @@ def seal_and_open_in_place_from_nonce(this, cipher_meta):
     munlock(buf)
 
 
-def seal_and_open_in_place_from_no_block_index_and_aad(this, cipher_meta):
+def seal_and_open_in_place_from_no_block_index(this, cipher_meta):
+    print(f"Testing {cipher_meta} {cipher_meta.alg}")
+    
+    key_len = cipher_meta.key_len()
+    key = bytearray(key_len)
+    mlock(key)
+    cipher_meta.generate_key(key)
+    munlock(key)
+    cipher = Cipher(cipher_meta, key)
+
+    # we create a buffer based on plaintext block len of 4096
+    # the actual buffer needs to be a bit larger as the ciphertext also includes the tag and nonce
+    plaintext_len = 256 * 1024
+    ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
+    buf = np.array([0] * ciphertext_len, dtype=np.uint8)
+    mlock(buf)
+
+    plaintext = bytearray(os.urandom(plaintext_len))
+    mlock(plaintext)
+    aad = b"AAD"
+
+    # encrypt it, after this will have the ciphertext in the buffer
+    ciphertext_len = cipher.seal_in_place_from(plaintext, buf, None, aad)
+    cipertext = bytes(buf[:ciphertext_len])
+
+    # decrypt it
+    plaintext_len = cipher.open_in_place_from(cipertext, buf, None, aad)
+    plaintext2 = buf[:plaintext_len]
+    this.assertEqual(plaintext, plaintext2)
+
+    zeroize1(plaintext)
+    zeroize1(buf)
+    munlock(plaintext)
+    munlock(buf)
+
+def seal_and_open_in_place_from_no_aad(this, cipher_meta):
     print(f"Testing {cipher_meta} {cipher_meta.alg}")
     
     key_len = cipher_meta.key_len()
@@ -291,11 +368,11 @@ def seal_and_open_in_place_from_no_block_index_and_aad(this, cipher_meta):
     mlock(plaintext)
 
     # encrypt it, after this will have the ciphertext in the buffer
-    ciphertext_len = cipher.seal_in_place_from(plaintext, buf)
+    ciphertext_len = cipher.seal_in_place_from(plaintext, buf, 42)
     cipertext = bytes(buf[:ciphertext_len])
 
     # decrypt it
-    plaintext_len = cipher.open_in_place_from(cipertext, buf)
+    plaintext_len = cipher.open_in_place_from(cipertext, buf, 42)
     plaintext2 = buf[:plaintext_len]
     this.assertEqual(plaintext, plaintext2)
 
@@ -388,6 +465,10 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
         seal_and_open_in_place(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
         # seal_and_open_in_place(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        
+        seal_and_open_in_place(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
+        
 
     def test_encrypt_nonce(self):
         seal_and_open_in_place_nonce(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -417,33 +498,70 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
         # seal_and_open_in_place_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
-    def test_encrypt_no_block_index_and_aad(self):
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Ring(RingAlgorithm.Aes128Gcm))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Ring(RingAlgorithm.Aes256Gcm))
+        seal_and_open_in_place_nonce(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_nonce(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
 
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.ChaCha20Poly1305))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.XChaCha20Poly1305))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Gcm))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Gcm))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128GcmSiv))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256GcmSiv))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Siv))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Siv))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128a))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon80pq))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI128))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI256))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII128))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII256))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Eax))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Eax))
+    def seal_and_open_in_place_no_block_index(self):
+        seal_and_open_in_place_no_block_index(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.Ring(RingAlgorithm.Aes128Gcm))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.Ring(RingAlgorithm.Aes256Gcm))
+
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.XChaCha20Poly1305))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Gcm))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Gcm))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128GcmSiv))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256GcmSiv))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Siv))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Siv))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128a))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon80pq))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI128))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI256))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII128))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII256))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Eax))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Eax))
             
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
-        seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
         # seal_and_open_in_place_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+
+        seal_and_open_in_place_no_block_index(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_no_block_index(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
+
+    def seal_and_open_in_place_no_aad(self):
+        seal_and_open_in_place_no_aad(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_no_aad(self, CipherMeta.Ring(RingAlgorithm.Aes128Gcm))
+        seal_and_open_in_place_no_aad(self, CipherMeta.Ring(RingAlgorithm.Aes256Gcm))
+
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.XChaCha20Poly1305))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Gcm))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Gcm))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128GcmSiv))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256GcmSiv))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Siv))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Siv))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128a))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon80pq))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI128))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI256))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII128))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII256))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Eax))
+        seal_and_open_in_place_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Eax))
+            
+        seal_and_open_in_place_no_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_no_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
+        seal_and_open_in_place_no_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
+        # seal_and_open_in_place_no_aad_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+
+        seal_and_open_in_place_no_aad(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_no_aad(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
 
     def test_encrypt_from(self):
         seal_and_open_in_place_from(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -473,6 +591,9 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_from(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
         # seal_and_open_in_place_from(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
+        seal_and_open_in_place_from(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
+
     def test_encrypt_from_nonce(self):
         seal_and_open_in_place_from_nonce(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
         seal_and_open_in_place_from_nonce(self, CipherMeta.Ring(RingAlgorithm.Aes128Gcm))
@@ -501,33 +622,70 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_from_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
         # seal_and_open_in_place_from_nonce(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
-    def test_encrypt_from_no_block_index_and_aad(self):
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Ring(RingAlgorithm.Aes128Gcm))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Ring(RingAlgorithm.Aes256Gcm))
+        seal_and_open_in_place_from_nonce(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_nonce(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
 
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.ChaCha20Poly1305))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.XChaCha20Poly1305))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Gcm))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Gcm))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128GcmSiv))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256GcmSiv))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Siv))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Siv))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128a))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon80pq))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI128))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI256))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII128))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII256))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Eax))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Eax))
+    def seal_and_open_in_place_from_no_block_index(self):
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.Ring(RingAlgorithm.Aes128Gcm))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.Ring(RingAlgorithm.Aes256Gcm))
+
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.XChaCha20Poly1305))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Gcm))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Gcm))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128GcmSiv))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256GcmSiv))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Siv))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Siv))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128a))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon80pq))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI128))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI256))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII128))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII256))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Eax))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Eax))
             
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
-        seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
-        # seal_and_open_in_place_from_no_block_index_and_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
+        # seal_and_open_in_place_from_no_block_index(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_no_block_index(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
+
+    def seal_and_open_in_place_from_no_aad(self):
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.Ring(RingAlgorithm.Aes128Gcm))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.Ring(RingAlgorithm.Aes256Gcm))
+
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.XChaCha20Poly1305))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Gcm))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Gcm))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128GcmSiv))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256GcmSiv))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Siv))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Siv))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon128a))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Ascon80pq))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI128))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysI256))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII128))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.DeoxysII256))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes128Eax))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.RustCrypto(RustCryptoAlgorithm.Aes256Eax))
+            
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.ChaCha20Poly1305Ieft))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
+        # seal_and_open_in_place_from_no_aad(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
+
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_from_no_aad(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
 
     def test_seal_and_open_in_place_file(self):
         seal_and_open_in_place_file(self, CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305))
@@ -557,6 +715,8 @@ class TestStringMethods(unittest.TestCase):
         seal_and_open_in_place_file(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.XChaCha20Poly1305Ieft))
         # seal_and_open_in_place_file(self, CipherMeta.Sodiumoxide(SodiumoxideAlgorithm.Aes256Gcm))
 
+        seal_and_open_in_place_file(self, CipherMeta.Orion(OrionAlgorithm.ChaCha20Poly1305))
+        seal_and_open_in_place_file(self, CipherMeta.Orion(OrionAlgorithm.XChaCha20Poly1305))
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 [package]
 name = "rencrypt"
-version = "1.0.1"
+version = "1.0.0"
 edition = "2021"
 
 [lib]
@@ -38,6 +38,9 @@ aes = "0.8.4"
 
 [dev-dependencies]
 criterion = { version = "^0.5.1", features = ["html_reports"] }
+
+[profile.release]
+panic = "abort"
 
 [[bench]]
 name = "parallel_copy"

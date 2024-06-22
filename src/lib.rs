@@ -5,7 +5,7 @@ use numpy::{PyArray1, PyArrayMethods};
 pub use crate::cipher::CipherMeta;
 pub use crate::cipher::RingAlgorithm;
 pub use crate::cipher::RustCryptoAlgorithm;
-use crate::cipher::SodiumoxideAlgorithm;
+use crate::cipher::{OrionAlgorithm, SodiumoxideAlgorithm};
 use pyo3::prelude::*;
 use pyo3::types::{PyByteArray, PyBytes};
 use rayon::iter::IndexedParallelIterator;
@@ -21,10 +21,11 @@ mod secrets;
 #[pymodule]
 fn rencrypt(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Cipher>()?;
+    m.add_class::<CipherMeta>()?;
     m.add_class::<RingAlgorithm>()?;
     m.add_class::<RustCryptoAlgorithm>()?;
     m.add_class::<SodiumoxideAlgorithm>()?;
-    m.add_class::<CipherMeta>()?;
+    m.add_class::<OrionAlgorithm>()?;
     Ok(())
 }
 
@@ -224,9 +225,9 @@ fn as_array<'a>(arr: &'a Bound<PyAny>) -> PyResult<&'a [u8]> {
 mod tests {
     use super::*;
     use crate::cipher;
-    use crate::cipher::SodiumoxideAlgorithm;
+    use crate::cipher::{OrionAlgorithm, SodiumoxideAlgorithm};
     use crate::crypto::create_rng;
-    use crate::CipherMeta::{Ring, RustCrypto, Sodiumoxide};
+    use crate::CipherMeta::{Orion, Ring, RustCrypto, Sodiumoxide};
     use rand_core::RngCore;
     use std::fs;
     use std::fs::File;
@@ -573,6 +574,10 @@ mod tests {
             println!("SodiumoxideAlgorithm {:?}", alg);
             test_seal_and_open_in_place_inner(Sodiumoxide { alg });
         }
+        for alg in OrionAlgorithm::iter() {
+            println!("OrionAlgorithm {:?}", alg);
+            test_seal_and_open_in_place_inner(Orion { alg });
+        }
     }
 
     #[test]
@@ -588,6 +593,10 @@ mod tests {
         for alg in SodiumoxideAlgorithm::iter() {
             println!("SodiumoxideAlgorithm {:?}", alg);
             test_seal_and_open_in_place_nonce_inner(Sodiumoxide { alg });
+        }
+        for alg in OrionAlgorithm::iter() {
+            println!("OrionAlgorithm {:?}", alg);
+            test_seal_and_open_in_place_nonce_inner(Orion { alg });
         }
     }
 
@@ -605,6 +614,10 @@ mod tests {
             println!("SodiumoxideAlgorithm {:?}", alg);
             test_encrypt_no_block_index_inner(Sodiumoxide { alg });
         }
+        for alg in OrionAlgorithm::iter() {
+            println!("OrionAlgorithm {:?}", alg);
+            test_encrypt_no_block_index_inner(Orion { alg });
+        }
     }
 
     #[test]
@@ -621,6 +634,10 @@ mod tests {
             println!("SodiumoxideAlgorithm {:?}", alg);
             test_encrypt_no_aad_inner(Sodiumoxide { alg });
         }
+        for alg in OrionAlgorithm::iter() {
+            println!("OrionAlgorithm {:?}", alg);
+            test_encrypt_no_aad_inner(Orion { alg });
+        }
     }
 
     #[test]
@@ -636,6 +653,10 @@ mod tests {
         for alg in SodiumoxideAlgorithm::iter() {
             println!("SodiumoxideAlgorithm {:?}", alg);
             test_seal_and_open_in_place_file_inner(Sodiumoxide { alg });
+        }
+        for alg in OrionAlgorithm::iter() {
+            println!("OrionAlgorithm {:?}", alg);
+            test_seal_and_open_in_place_file_inner(Orion { alg });
         }
     }
 }
