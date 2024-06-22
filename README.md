@@ -335,10 +335,6 @@ If you can directly collect the data to that buffer, like `BufferedReader.read_i
 
 On each encrypt operation (`seal_in_place*()`) it will generate a cryptographically secure random nonce using `ChaCha20`. You can also provide your own nonce, there is an example below.
 
-## Encryption provider
-
-You will notice in the examples we initiate the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption provider, for now it's only one but in the future we will add more. The last part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier might expose specific algorithms.
-
 # Security
 
 - **The total number of invocations of the encryption functions (`seal_in_place*()`) shall not exceed `2^32`, including all nonce lengths and all instances of `Cipher` with the given key. Following this guideline, only `4,294,967,296` messages with random nonces can be encrypted under a given key. While this bound is high, it's possible to encounter in practice, and systems which might reach it should consider alternatives to purely random nonces, like a counter or a combination of a random nonce + counter.**
@@ -349,11 +345,11 @@ You will notice in the examples we initiate the `Cipher` from something like thi
 
 In the examples below you will see how to do it.
 
-# Providers and Algorithms (Ciphes)
+# Encryption providers and algorithms (ciphes)
 
-## Availbale providers and algorithms
+You will notice in the examples we initiate the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption provider. The last part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier might expose specific algorithms.
 
-### Providers
+## Providers
 
 ```rust
 enum CipherMeta {
@@ -373,7 +369,7 @@ enum CipherMeta {
   [Sodium](https://github.com/jedisct1/libsodium) is a portable, cross-compilable, installable, packageable fork of NaCl (based on the latest released upstream version nacl-20110221), with a compatible API.
 - `Orion`: Based on [orion](https://crates.io/crates/orion) crate. Written in pure Rust, it aims to provide easy and usable crypto while trying to minimize the use of unsafe code. You can read more about Orion in the [wiki](https://github.com/orion-rs/orion/wiki).
 
-### Algorithms
+## Algorithms
 
 ```rust
 enum RingAlgorithm {
