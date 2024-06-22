@@ -21,6 +21,15 @@ pub(crate) mod ring;
 pub(crate) mod rust_crypto;
 pub(crate) mod sodiumoxide;
 
+#[pyclass]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize)]
+pub enum CipherMeta {
+    Ring { alg: RingAlgorithm },
+    RustCrypto { alg: RustCryptoAlgorithm },
+    Sodiumoxide { alg: SodiumoxideAlgorithm },
+    Orion { alg: OrionAlgorithm },
+}
+
 #[allow(dead_code)]
 pub(crate) trait Cipher: Send + Sync {
     fn seal_in_place<'a>(
@@ -94,12 +103,12 @@ pub enum OrionAlgorithm {
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize)]
-pub enum CipherMeta {
-    Ring { alg: RingAlgorithm },
-    RustCrypto { alg: RustCryptoAlgorithm },
-    Sodiumoxide { alg: SodiumoxideAlgorithm },
-    Orion { alg: OrionAlgorithm },
+#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
+pub enum HPKEAlgorithm {
+    Aes128Gcm,
+    #[default]
+    Aes256Gcm,
+    ChaCha20Poly1305,
 }
 
 #[pymethods]
@@ -187,6 +196,15 @@ fn tag_len(cipher_meta: CipherMeta) -> usize {
 
 fn overhead(cipher_meta: CipherMeta) -> usize {
     tag_len(cipher_meta) + nonce_len(cipher_meta)
+}
+
+pub fn new_cipher(cipher_meta: CipherMeta, key: &SecretVec<u8>) -> io::Result<Box<dyn Cipher>> {
+    match cipher_meta {
+        CipherMeta::Ring { alg } => Ok(Box::new(RingCipher::new(alg, key)?)),
+        CipherMeta::RustCrypto { alg } => rust_crypto::new(alg, key),
+        CipherMeta::Sodiumoxide { alg } => Ok(Box::new(SodiumoxideCipher::new(alg, key)?)),
+        CipherMeta::Orion { alg } => Ok(Box::new(OrionCipher::new(alg, key)?)),
+    }
 }
 
 #[allow(dead_code)]
@@ -319,13 +337,4 @@ pub(crate) fn create_aad(block_index: Option<u64>, aad: Option<&[u8]>) -> Vec<u8
         block_index
     });
     aad2
-}
-
-pub fn new_cipher(cipher_meta: CipherMeta, key: &SecretVec<u8>) -> io::Result<Box<dyn Cipher>> {
-    match cipher_meta {
-        CipherMeta::Ring { alg } => Ok(Box::new(RingCipher::new(alg, key)?)),
-        CipherMeta::RustCrypto { alg } => rust_crypto::new(alg, key),
-        CipherMeta::Sodiumoxide { alg } => Ok(Box::new(SodiumoxideCipher::new(alg, key)?)),
-        CipherMeta::Orion { alg } => Ok(Box::new(OrionCipher::new(alg, key)?)),
-    }
 }
