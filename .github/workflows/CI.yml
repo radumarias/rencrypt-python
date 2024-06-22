@@ -129,19 +129,19 @@ jobs:
         .env\Scripts\activate
         
         pytest
-        if %errorlevel% neq 0 exit /b %errorlevel%
+        if ($LASTEXITCODE) { exit $LASTEXITCODE }
         
         python examples/encrypt.py
-        if %errorlevel% neq 0 exit /b %errorlevel%
+        if ($LASTEXITCODE) { exit $LASTEXITCODE }
         
         python examples/encrypt_from.py
-        if %errorlevel% neq 0 exit /b %errorlevel%
+        if ($LASTEXITCODE) { exit $LASTEXITCODE }
         
         python examples/encrypt_file.py
-        if %errorlevel% neq 0 exit /b %errorlevel%
+        if ($LASTEXITCODE) { exit $LASTEXITCODE }
         
         python benches/bench.py
-        if %errorlevel% neq 0 exit /b %errorlevel%
+        if ($LASTEXITCODE) { exit $LASTEXITCODE }
         
   build_linux:
     needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
