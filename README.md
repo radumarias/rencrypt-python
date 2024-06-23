@@ -438,7 +438,11 @@ enum OrionAlgorithm {
 
 # Examples
 
-You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks. Here are few simple examples:
+You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks.
+
+**On Windows you can mlock up to 128 KB by default. If you need more you need to first call `SetProcessWorkingSetSize` to increase the `dwMinimumWorkingSetSize`.**
+
+Here are few simple examples.
 
 ## Encrypt and decrypt with a buffer in memory
 
@@ -451,10 +455,44 @@ from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1, mlock, munlock
 import numpy as np
+import platform
 
+
+def setup_memory_limit():
+    if not platform.system() == "Windows":
+        return
+
+    import ctypes
+    from ctypes import wintypes
+
+    # Define the Windows API functions
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+
+    GetCurrentProcess = kernel32.GetCurrentProcess
+    GetCurrentProcess.restype = wintypes.HANDLE
+
+    SetProcessWorkingSetSize = kernel32.SetProcessWorkingSetSize
+    SetProcessWorkingSetSize.restype = wintypes.BOOL
+    SetProcessWorkingSetSize.argtypes = [wintypes.HANDLE, ctypes.c_size_t, ctypes.c_size_t]
+
+    # Get the handle of the current process
+    current_process = GetCurrentProcess()
+
+    # Set the working set size
+    min_size = 6 * 1024 * 1024  # Minimum working set size
+    max_size = 10 * 1024 * 1024  # Maximum working set size
+
+    result = SetProcessWorkingSetSize(current_process, min_size, max_size)
+
+    if not result:
+        error_code = ctypes.get_last_error()
+        error_message = ctypes.FormatError(error_code)
+        raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
 if __name__ == "__main__":
     try:
+        setup_memory_limit()
+
         # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
         cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
         key_len = cipher_meta.key_len()
@@ -522,10 +560,44 @@ from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1, mlock, munlock
 import numpy as np
+import platform
 
+
+def setup_memory_limit():
+    if not platform.system() == "Windows":
+        return
+
+    import ctypes
+    from ctypes import wintypes
+
+    # Define the Windows API functions
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+
+    GetCurrentProcess = kernel32.GetCurrentProcess
+    GetCurrentProcess.restype = wintypes.HANDLE
+
+    SetProcessWorkingSetSize = kernel32.SetProcessWorkingSetSize
+    SetProcessWorkingSetSize.restype = wintypes.BOOL
+    SetProcessWorkingSetSize.argtypes = [wintypes.HANDLE, ctypes.c_size_t, ctypes.c_size_t]
+
+    # Get the handle of the current process
+    current_process = GetCurrentProcess()
+
+    # Set the working set size
+    min_size = 6 * 1024 * 1024  # Minimum working set size
+    max_size = 10 * 1024 * 1024  # Maximum working set size
+
+    result = SetProcessWorkingSetSize(current_process, min_size, max_size)
+
+    if not result:
+        error_code = ctypes.get_last_error()
+        error_message = ctypes.FormatError(error_code)
+        raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
 if __name__ == "__main__":
     try:
+        setup_memory_limit()
+
         # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
         cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
         key_len = cipher_meta.key_len()
@@ -548,7 +620,6 @@ if __name__ == "__main__":
         mlock(buf)
 
         aad = b"AAD"
-        # create our own nonce
         nonce = os.urandom(cipher_meta.nonce_len())
 
         # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
@@ -560,7 +631,6 @@ if __name__ == "__main__":
         # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
-        # provide our own nonce
         print("encryping...")
         ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad, nonce)
         cipertext = buf[:ciphertext_len]
@@ -570,7 +640,7 @@ if __name__ == "__main__":
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
         # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
         print("decryping...")
-        plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad)
+        plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad, nonce)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
         mlock(plaintext2)
@@ -599,7 +669,39 @@ from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import hashlib
 from zeroize import zeroize1, mlock, munlock
 import numpy as np
+import platform
 
+
+def setup_memory_limit():
+    if not platform.system() == "Windows":
+        return
+
+    import ctypes
+    from ctypes import wintypes
+
+    # Define the Windows API functions
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+
+    GetCurrentProcess = kernel32.GetCurrentProcess
+    GetCurrentProcess.restype = wintypes.HANDLE
+
+    SetProcessWorkingSetSize = kernel32.SetProcessWorkingSetSize
+    SetProcessWorkingSetSize.restype = wintypes.BOOL
+    SetProcessWorkingSetSize.argtypes = [wintypes.HANDLE, ctypes.c_size_t, ctypes.c_size_t]
+
+    # Get the handle of the current process
+    current_process = GetCurrentProcess()
+
+    # Set the working set size
+    min_size = 6 * 1024 * 1024  # Minimum working set size
+    max_size = 10 * 1024 * 1024  # Maximum working set size
+
+    result = SetProcessWorkingSetSize(current_process, min_size, max_size)
+
+    if not result:
+        error_code = ctypes.get_last_error()
+        error_message = ctypes.FormatError(error_code)
+        raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
 def read_file_in_chunks(file_path, buf):
     with open(file_path, "rb") as file:
@@ -663,6 +765,8 @@ def delete_dir(path):
 
 if __name__ == "__main__":
     try:
+        setup_memory_limit()
+
         tmp_dir = create_directory_in_home("rencrypt_tmp")
         fin = tmp_dir + "/" + "fin"
         fout = tmp_dir + "/" + "fout.enc"
@@ -688,7 +792,8 @@ if __name__ == "__main__":
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
         mlock(buf)
 
-        aad = b"AAD"
+        # use some random per file in additional authenticated data to prevent blocks from being swapped between files
+        aad = os.urandom(16)
 
         # encrypt
         print("encryping...")
@@ -736,10 +841,44 @@ from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
 from zeroize import zeroize1, mlock, munlock
 import numpy as np
+import platform
 
+
+def setup_memory_limit():
+    if not platform.system() == "Windows":
+        return
+
+    import ctypes
+    from ctypes import wintypes
+
+    # Define the Windows API functions
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+
+    GetCurrentProcess = kernel32.GetCurrentProcess
+    GetCurrentProcess.restype = wintypes.HANDLE
+
+    SetProcessWorkingSetSize = kernel32.SetProcessWorkingSetSize
+    SetProcessWorkingSetSize.restype = wintypes.BOOL
+    SetProcessWorkingSetSize.argtypes = [wintypes.HANDLE, ctypes.c_size_t, ctypes.c_size_t]
+
+    # Get the handle of the current process
+    current_process = GetCurrentProcess()
+
+    # Set the working set size
+    min_size = 6 * 1024 * 1024  # Minimum working set size
+    max_size = 10 * 1024 * 1024  # Maximum working set size
+
+    result = SetProcessWorkingSetSize(current_process, min_size, max_size)
+
+    if not result:
+        error_code = ctypes.get_last_error()
+        error_message = ctypes.FormatError(error_code)
+        raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
 if __name__ == "__main__":
     try:
+        setup_memory_limit()
+
         # You can use also other algorithms like cipher_meta = CipherMeta.Ring(RingAlgorithm.ChaCha20Poly1305)`.
         cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
         key_len = cipher_meta.key_len()
