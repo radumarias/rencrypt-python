@@ -1,14 +1,14 @@
 pytest
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
+if %errorlevel% neq 0 exit /b %errorlevel%
 
 python examples/encrypt.py
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
+if %errorlevel% neq 0 exit /b %errorlevel%
 
 python examples/encrypt_from.py
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
+if %errorlevel% neq 0 exit /b %errorlevel%
 
 python examples/encrypt_file.py
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
+if %errorlevel% neq 0 exit /b %errorlevel%
 
 python benches/bench.py
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
+if %errorlevel% neq 0 exit /b %errorlevel%
