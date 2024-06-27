@@ -325,7 +325,7 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 There are two ways in which you can use the lib, the first one is a bit faster, the second offers a bit more flexible way to use it sacrificing a bit of performance.
 
 1. **With a buffer in memory**: using `seal_in_place()`/`open_in_place()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
-**The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slices that reference to underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len + tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
+**The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slice that reference the underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len + tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
 If you can directly collect the data to that buffer, like `BufferedReader.read_into()`, **this is the preffered way to go**.
 2. **From some bytes into the buffer**: using `seal_in_place_from()`/`open_in_place_from()`, when you have some arbitrary data that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in the buffer. This is a bit slower, especially for large data, because it first needs to copy the bytes to the buffer.
 
