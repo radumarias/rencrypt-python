@@ -337,7 +337,7 @@ If `nonce` is not provided, on each encrypt operation (`seal_in_place*()`) it wi
 
 - **The total number of invocations of the encryption functions (`seal_in_place*()`) shall not exceed `2^32`, including all nonce lengths and all instances of `Cipher` with the given key. Following this guideline, only `4,294,967,296` messages with random nonces can be encrypted under a given key. While this bound is high (for blocks of 256 KB that is 1099.512 TB (terabytes)), it's possible to encounter in practice, and systems which might reach it should consider alternatives to purely random nonces, like a counter or a combination of a random nonce + counter.**
 - **When encrypting more than one block you should provide `block_index` as it's more secure because it ensures the order of the blocks was not changed in ciphertext.**
-- **When you encrypt files it's more secure to generate a random number per file and include that in AAD, this will prevent ciphertext blocks from being swapped between files.**
+- **When you encrypt files it's more secure to generate a random number per file and include that in AAD, in addition to `block_index`, this will prevent ciphertext blocks from being swapped between files also.**
 - **For security reasons it's a good practice to lock the memory with `mlock()` in which you keep sensitive data like passwords or encrryption keys, or any other plaintext sensitive content. Also it's important to zeroize the data when not used anymore.**  
 - **In the case of [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write) you need to zeroize the memory before forking the child process.**  
 
