@@ -422,7 +422,8 @@ enum OrionAlgorithm {
 - [`ChaCha20Poly1305`](https://en.wikipedia.org/wiki/ChaCha20-Poly1305): Is notable for being simple and fast when implemented in pure software. The underlying `ChaCha20` stream cipher uses a simple combination of `add`, `rotate`, and `XOR` instructions (a.k.a. `"ARX"`), and the `Poly1305` hash function is likewise extremely simple. With `RustCrypto` provider the underlying `chacha20poly1305` has received one security audit by NCC Group, with no significant findings. With `Ring` provider the underlying `ring` crtate was also audited.
   If you do not have a hardware acceleration, `ChaCha20Poly1305` is faster than `AES-GCM`.
   While it hasn't received approval from certain standards bodies (i.e. NIST) the algorithm is widely used and deployed. Notably it's mandatory to implement in the Transport Layer Security (TLS) protocol. The underlying `ChaCha20` cipher is also widely used as a cryptographically secure random number generator, including internal use by the Rust standard library.
-- [`XChaCha20Poly1305`](https://en.wikipedia.org/wiki/ChaCha20-Poly1305#XChaCha20-Poly1305_%E2%80%93_extended_nonce_variant): A variant of `ChaCha20Poly1305` with an extended 192-bit (24-byte) nonce.
+- [`XChaCha20Poly1305`](https://en.wikipedia.org/wiki/ChaCha20-Poly1305#XChaCha20-Poly1305_%E2%80%93_extended_nonce_variant): A variant of `ChaCha20Poly1305` with an extended 192-bit (24-byte) nonce.  
+This has been audited also.
 
 ## Not audited
 
