@@ -345,7 +345,7 @@ In the examples below you will see how to do it.
 
 # Encryption providers and algorithms (ciphers)
 
-You will notice in the examples we create the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption provider. The second part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier might expose specific algorithms.
+You will notice in the examples we create the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption provider. The second part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier expose specific algorithms.
 
 ## Providers
 
