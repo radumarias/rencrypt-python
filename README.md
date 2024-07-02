@@ -1267,13 +1267,11 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 1. Fork the repo
 2. Make the changes in your fork
 3. Add tests for your changes, if applicable
-4. `cargo build --all --all-features` and fix any issues
-5. `cargo fmt --all`, you can cnofigure your IDE to do this on save [RustRover](https://www.jetbrains.com/help/rust/rustfmt.html) and [VSCode](https://code.visualstudio.com/docs/languages/rust#_formatting)
-6. `cargo check --all --all-features` and fix any errors and warnings
-7. `cargo clippy --all --all-features` and fix any errors
-8. `cargo test --all --all-features` and fix any issues
-9. `cargo bench --all --all-features` and fix any issues
-10. Create a PR
-11. Monitor the checks (GitHub actions runned)
-12. Respond to any comments
-13. In the end ideally it will be merged to `main`
+4. `cargo fmt --all`, you can cnofigure your IDE to do this on save [RustRover](https://www.jetbrains.com/help/rust/rustfmt.html) and [VSCode](https://code.visualstudio.com/docs/languages/rust#_formatting)
+5. `cargo check --all` and fix any errors and warnings
+6. `cargo clippy --all` and fix any errors
+7. `cargo test --all --all-features --release` and fix any issues
+8. Create a PR
+9. Monitor the checks (GitHub actions runned)
+10. Respond to any comments
+11. In the end, ideally, it will be merged to `main`
