@@ -1271,7 +1271,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 5. `cargo check --all` and fix any errors and warnings
 6. `cargo clippy --all` and fix any errors
 7. `cargo test --all --all-features --release` and fix any issues
-8. Create a PR
+8. Create a PR back to main repo
 9. Monitor the checks (GitHub actions runned)
 10. Respond to any comments
 11. In the end, ideally, it will be merged to `main`
