@@ -40,7 +40,9 @@ jobs:
         run: rustup update
 
       - name: build
-        run: cargo build --all --release
+        run: |
+          cargo build --all
+          cargo build --all --release
 
       - name: Fmt check
         run: cargo fmt --all -- --check
