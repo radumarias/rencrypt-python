@@ -320,7 +320,7 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
     </tbody>
 </table>
 
-# Hardware used for benchmarks
+# Hardware used in benchmarks
 
 ```
 Laptop LG Gram 17Z90Q
