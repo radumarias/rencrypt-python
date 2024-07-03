@@ -320,6 +320,22 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
     </tbody>
 </table>
 
+# Hardware used for benchmarks
+
+```
+Laptop LG Gram 17Z90Q
+SSD: 1 TB M.2 NVMe SSD (Samsung PM9A1) – 2x M.2 2280 slots
+CPU: 12th Gen Intel(R) Core(TM) i7-1260P
+CPU ID: GenuineIntel,6,154,3
+CPU Architecture: x86_64
+CPUs Online: 16
+CPUs Available: 16
+CPU Sibling Cores: [0-15]
+CPU Sibling Threads: [0-1], [2-3], [4-5], [6-7], [8], [9], [10], [11], [12], [13], [14], [15]
+Total Memory: 33.4 GB LPDDR5 5200 MHz
+Linux Kernel Version: 6.9.5-1-MANJARO
+```
+
 # Usage
 
 There are two ways in which you can use the lib, the first one is a bit faster, the second offers a bit more flexible way to use it sacrificing a bit of performance.
