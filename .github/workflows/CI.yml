@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Rust
+      - name: setup Rust
         run: rustup update
 
       - name: build
@@ -44,17 +44,17 @@ jobs:
           cargo build --all-targets --all-features
           cargo build --release --all-targets --all-features
 
-      - name: Fmt check
-        run: cargo fmt --all -- --check
-      
-      - name: Check
+      - name: fmt check
+        run: cargo fmt --all --check
+
+      - name: check
         run: cargo check --all-targets
-  
+
       - name: clippy
         run: cargo clippy --all-targets
-      
-      - name: Tests
-        run: cargo test --release  --all-features
+
+      - name: tests
+        run: cargo test --release --all-features
 
   test_py_linux:
     runs-on: ubuntu-latest
