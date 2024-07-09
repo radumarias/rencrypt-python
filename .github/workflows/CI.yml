@@ -41,20 +41,20 @@ jobs:
 
       - name: build
         run: |
-          cargo build --all --all-features
-          cargo build --release --all --all-features
+          cargo build --all-targets --all-features
+          cargo build --release --all-targets --all-features
 
       - name: Fmt check
         run: cargo fmt --all -- --check
       
       - name: Check
-        run: cargo check --all
+        run: cargo check --all-targets
   
       - name: clippy
-        run: cargo clippy --all
+        run: cargo clippy --all-targets
       
       - name: Tests
-        run: cargo test --release --all --all-features -- nocapture
+        run: cargo test --release  --all-features
 
   test_py_linux:
     runs-on: ubuntu-latest
