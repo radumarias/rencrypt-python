@@ -4,20 +4,30 @@
 [![CI](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml)
 
 > [!WARNING]  
-> **This crate hasn't been audited, but it's mostly a wrapper over several libs like `ring` (well known and audited library),`RustCrypto` (`AES-GCM` and `ChaCha20Poly1305` ciphers are audited) but also others which are NOT audited, so in principle at least the primitives should offer a similar level of security.**
+> **This crate hasn't been audited, but it's mostly a wrapper over several libs like `ring` (well known and audited
+library),`RustCrypto` (`AES-GCM` and `ChaCha20Poly1305` ciphers are audited) but also others which are NOT audited, so
+in principle at least the primitives should offer a similar level of security.**
 
-A Python encryption library implemented in Rust. It supports `AEAD` with varius ciphers. It uses [ring](https://crates.io/crates/ring), [RustCrypto](https://crates.io/crates/aead) (and derivates), [sodiumoxide](https://crates.io/crates/sodiumoxide) and [orion](https://crates.io/crates/orion) to handle encryption.  
-If offers slightly higher speed compared to other Python libs, especially for small chunks of data (especially the `Ring` provider with `AES-GCM` ciphers). The API also tries to be easy to use but it's more optimized for speed than usability.
+A Python encryption library implemented in Rust. It supports `AEAD` with varius ciphers. It
+uses [ring](https://crates.io/crates/ring), [RustCrypto](https://crates.io/crates/aead) (and
+derivates), [sodiumoxide](https://crates.io/crates/sodiumoxide) and [orion](https://crates.io/crates/orion) to handle
+encryption.  
+If offers slightly higher speed compared to other Python libs, especially for small chunks of data (especially
+the `Ring` provider with `AES-GCM` ciphers). The API also tries to be easy to use but it's more optimized for speed than
+usability.
 
-So if you want to use a vast variaety of ciphers and/or achieve the highest possible encryption speed, consider giving it a try.
+So if you want to use a vast variaety of ciphers and/or achieve the highest possible encryption speed, consider giving
+it a try.
 
 # Benchmark
 
-Some benchmarks comparing it to [PyFLocker](https://github.com/arunanshub/pyflocker) which from my benchmarks is the fastest among other Python libs like `cryptography`, `NaCl` (`libsodium`), `PyCryptodome`.
+Some benchmarks comparing it to [PyFLocker](https://github.com/arunanshub/pyflocker) which from my benchmarks is the
+fastest among other Python libs like `cryptography`, `NaCl` (`libsodium`), `PyCryptodome`.
 
 ## Buffer in memory
 
-This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
+This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that
+buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
 `rencrypt` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
 
 **Encrypt seconds**  
@@ -25,7 +35,6 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 
 **Decrypt seconds**  
 ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt.png?raw=true)
-
 
 **Block size and duration in seconds**
 
@@ -160,7 +169,7 @@ This is useful when you keep a buffer, set your plaintext/ciphertext in there, a
 **Encrypt seconds**  
 ![Encrypt file](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-file.png?raw=true)
 
- **Decrypt seconds**  
+**Decrypt seconds**  
 ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-file.png?raw=true)
 
 **File size and duration in seconds**
@@ -338,30 +347,52 @@ Linux Kernel Version: 6.9.5-1-MANJARO
 
 # Usage
 
-There are two ways in which you can use the lib, the first one is a bit faster, the second offers a bit more flexible way to use it sacrificing a bit of performance.
+There are two ways in which you can use the lib, the first one is a bit faster, the second offers a bit more flexible
+way to use it sacrificing a bit of performance.
 
-1. **With a buffer in memory**: using `seal_in_place()`/`open_in_place()`, is useful when you keep a buffer (or have it from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
-**The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slice that reference the underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len + tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
-If you can directly collect the data to that buffer, like `BufferedReader.read_into()`, **this is the preffered way to go**.
-2. **From some bytes into the buffer**: using `seal_in_place_from()`/`open_in_place_from()`, when you have some arbitrary data that you want to work with. It will first copy those bytes to the buffer then do the operation in-place in the buffer. This is a bit slower, especially for large data, because it first needs to copy the bytes to the buffer.
+1. **With a buffer in memory**: using `seal_in_place()`/`open_in_place()`, is useful when you keep a buffer (or have it
+   from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is
+   the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
+   **The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slices that reference to
+   underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len +
+   tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
+   If you can directly collect the data to that buffer, like `BufferedReader.read_into()`, **this is the preffered way
+   to go**.
+2. **From some bytes into the buffer**: using `seal_in_place_from()`/`open_in_place_from()`, when you have some
+   arbitrary data that you want to work with. It will first copy those bytes to the buffer then do the operation
+   in-place in the buffer. This is a bit slower, especially for large data, because it first needs to copy the bytes to
+   the buffer.
 
 `block_index`, `aad` and `nonce` are optional.
 
-If `nonce` is not provided, on each encrypt operation (`seal_in_place*()`) it will generate a cryptographically secure random nonce using `ChaCha20`. You can also provide your own nonce, there is an example below.
+If `nonce` is not provided, on each encrypt operation (`seal_in_place*()`) it will generate a cryptographically secure
+random nonce using `ChaCha20`. You can also provide your own nonce, there is an example below.
 
 # Security
 
-- **The total number of invocations of the encryption functions (`seal_in_place*()`) shall not exceed `2^32`, including all nonce lengths and all instances of `Cipher` with the given key. Following this guideline, only `4,294,967,296` messages with random nonces can be encrypted under a given key. While this bound is high (for blocks of 256 KB that is 1099.512 TB (terabytes)), it's possible to encounter in practice, and systems which might reach it should consider alternatives to purely random nonces, like a counter or a combination of a random nonce + counter.**
-- **When encrypting more than one block you should provide `block_index` as it's more secure because it ensures the order of the blocks was not changed in ciphertext.**
-- **When you encrypt files it's more secure to generate a random number per file and include that in AAD, in addition to `block_index`, this will prevent ciphertext blocks from being swapped between files also.**
-- **For security reasons it's a good practice to lock the memory with `mlock()` in which you keep sensitive data like passwords or encrryption keys, or any other plaintext sensitive content. Also it's important to zeroize the data when not used anymore.**  
-- **In the case of [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write) you need to zeroize the memory before forking the child process.**  
+- **The total number of invocations of the encryption functions (`seal_in_place*()`) shall not exceed `2^32`, including
+  all nonce lengths and all instances of `Cipher` with the given key. Following this guideline, only `4,294,967,296`
+  messages with random nonces can be encrypted under a given key. While this bound is high, it's possible to encounter
+  in practice, and systems which might reach it should consider alternatives to purely random nonces, like a counter or
+  a combination of a random nonce + counter.**
+- **When encrypting more than one block you should provide `block_index` as it's more secure because it ensures the
+  order of the blocks was not changed in ciphertext.**
+- **When you encrypt files it's more secure to generate a random number per file and include that in AAD, this will
+  prevent ciphertext blocks from being swapped between files.**
+- **For security reasons it's a good practice to lock the memory with `mlock()` in which you keep sensitive data like
+  passwords or encrryption keys, or any other plaintext sensitive content. Also it's important to zeroize the data when
+  not used anymore.**
+- **In the case of [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write) you need to zeroize the memory
+  before forking the child process.**
 
 In the examples below you will see how to do it.
 
 # Encryption providers and algorithms (ciphers)
 
-You will notice in the examples we create the `Cipher` from something like this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption provider. The second part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier expose specific algorithms.
+You will notice in the examples we create the `Cipher` from something like
+this `cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)`. The first part `CipherMeta.Ring` is the encryption
+provider. The last part is the algorithm for that provider, in this case `Aes256Gcm`. Each provier might expose specific
+algorithms.
 
 ## Providers
 
@@ -374,14 +405,29 @@ enum CipherMeta {
 }
 ```
 
-- `Ring`: Based on [ring](https://crates.io/crates/ring) crate. ring is focused on the implementation, testing, and optimization of a core set of cryptographic operations exposed via an easy-to-use (and hard-to-misuse) API. ring exposes a Rust API and is written in a hybrid of Rust, C, and assembly language.  
-  Particular attention is being paid to making it easy to build and integrate ring into applications and higher-level frameworks, and to ensuring that ring works optimally on small devices, and eventually microcontrollers, to support Internet of Things (IoT) applications.  
-  Most of the C and assembly language code in ring comes from BoringSSL, and BoringSSL is derived from OpenSSL. ring merges changes from BoringSSL regularly. Also, several changes that were developed for ring have been contributed to and integrated into BoringSSL.
-- `RustCrypto`: Based on [RustCrypto](https://github.com/RustCrypto/AEADs) collection of Authenticated Encryption with Associated Data (AEAD) algorithms written in pure Rust. AEADs are high-level symmetric encryption primitives which defend against a wide range of potential attacks (i.e. IND-CCA3).
-- `Sodiumoxide`: Based on [sodiumoxide](https://crates.io/crates/sodiumoxide) crate which aims to provide a type-safe and efficient Rust binding that's just as easy to use.  
-  [`NaCl`](https://nacl.cr.yp.to) (pronounced "salt") is a new easy-to-use high-speed software library for network communication, encryption, decryption, signatures, etc. NaCl's goal is to provide all of the core operations needed to build higher-level cryptographic tools. Of course, other libraries already exist for these core operations. NaCl advances the state of the art by improving security, by improving usability, and by improving speed.  
-  [Sodium](https://github.com/jedisct1/libsodium) is a portable, cross-compilable, installable, packageable fork of NaCl (based on the latest released upstream version nacl-20110221), with a compatible API.
-- `Orion`: Based on [orion](https://crates.io/crates/orion) crate. Written in pure Rust, it aims to provide easy and usable crypto while trying to minimize the use of unsafe code. You can read more about Orion in the [wiki](https://github.com/orion-rs/orion/wiki).
+- `Ring`: Based on [ring](https://crates.io/crates/ring) crate. ring is focused on the implementation, testing, and
+  optimization of a core set of cryptographic operations exposed via an easy-to-use (and hard-to-misuse) API. ring
+  exposes a Rust API and is written in a hybrid of Rust, C, and assembly language.  
+  Particular attention is being paid to making it easy to build and integrate ring into applications and higher-level
+  frameworks, and to ensuring that ring works optimally on small devices, and eventually microcontrollers, to support
+  Internet of Things (IoT) applications.  
+  Most of the C and assembly language code in ring comes from BoringSSL, and BoringSSL is derived from OpenSSL. ring
+  merges changes from BoringSSL regularly. Also, several changes that were developed for ring have been contributed to
+  and integrated into BoringSSL.
+- `RustCrypto`: Based on [RustCrypto](https://github.com/RustCrypto/AEADs) collection of Authenticated Encryption with
+  Associated Data (AEAD) algorithms written in pure Rust. AEADs are high-level symmetric encryption primitives which
+  defend against a wide range of potential attacks (i.e. IND-CCA3).
+- `Sodiumoxide`: Based on [sodiumoxide](https://crates.io/crates/sodiumoxide) crate which aims to provide a type-safe
+  and efficient Rust binding that's just as easy to use.  
+  [`NaCl`](https://nacl.cr.yp.to) (pronounced "salt") is a new easy-to-use high-speed software library for network
+  communication, encryption, decryption, signatures, etc. NaCl's goal is to provide all of the core operations needed to
+  build higher-level cryptographic tools. Of course, other libraries already exist for these core operations. NaCl
+  advances the state of the art by improving security, by improving usability, and by improving speed.  
+  [Sodium](https://github.com/jedisct1/libsodium) is a portable, cross-compilable, installable, packageable fork of
+  NaCl (based on the latest released upstream version nacl-20110221), with a compatible API.
+- `Orion`: Based on [orion](https://crates.io/crates/orion) crate. Written in pure Rust, it aims to provide easy and
+  usable crypto while trying to minimize the use of unsafe code. You can read more about Orion in
+  the [wiki](https://github.com/orion-rs/orion/wiki).
 
 ## Algorithms
 
@@ -432,40 +478,72 @@ enum OrionAlgorithm {
 
 ## Audited
 
-**Only for `Aes128Gcm`, `Aes256Gcm` and `ChaCha20Poly1305` with `Ring` and `RustCrypto` providers underlying crates have been audited.**
+**Only for `Aes128Gcm`, `Aes256Gcm` and `ChaCha20Poly1305` with `Ring` and `RustCrypto` providers underlying crates have
+been audited.**
 
-- [`Aes128Gcm`/`Aes256Gcm`](https://datatracker.ietf.org/doc/html/rfc5288): If you have hardware acceleration (e.g. `AES-NI`), then `AES-GCM` provides better performance. If you do not have a hardware acceleration, `AES-GCM` is either slower than `ChaCha20Poly1305`, or it leaks your encryption keys in cache timing. With `RustCrypto` provider the underlying `aes-gcm` has received one security audit by NCC Group, with no significant findings. With `Ring` provider the underlying `ring` crate was also audited.
-- [`ChaCha20Poly1305`](https://en.wikipedia.org/wiki/ChaCha20-Poly1305): Is notable for being simple and fast when implemented in pure software. The underlying `ChaCha20` stream cipher uses a simple combination of `add`, `rotate`, and `XOR` instructions (a.k.a. `"ARX"`), and the `Poly1305` hash function is likewise extremely simple. With `RustCrypto` provider the underlying `chacha20poly1305` has received one security audit by NCC Group, with no significant findings. With `Ring` provider the underlying `ring` crtate was also audited.
+- [`Aes128Gcm`/`Aes256Gcm`](https://datatracker.ietf.org/doc/html/rfc5288): If you have hardware acceleration (
+  e.g. `AES-NI`), then `AES-GCM` provides better performance. If you do not have a hardware acceleration, `AES-GCM` is
+  either slower than `ChaCha20Poly1305`, or it leaks your encryption keys in cache timing. With `RustCrypto` provider
+  the underlying `aes-gcm` has received one security audit by NCC Group, with no significant findings. With `Ring`
+  provider the underlying `ring` crate was also audited.
+- [`ChaCha20Poly1305`](https://en.wikipedia.org/wiki/ChaCha20-Poly1305): Is notable for being simple and fast when
+  implemented in pure software. The underlying `ChaCha20` stream cipher uses a simple combination of `add`, `rotate`,
+  and `XOR` instructions (a.k.a. `"ARX"`), and the `Poly1305` hash function is likewise extremely simple.
+  With `RustCrypto` provider the underlying `chacha20poly1305` has received one security audit by NCC Group, with no
+  significant findings. With `Ring` provider the underlying `ring` crtate was also audited.
   If you do not have a hardware acceleration, `ChaCha20Poly1305` is faster than `AES-GCM`.
-  While it hasn't received approval from certain standards bodies (i.e. NIST) the algorithm is widely used and deployed. Notably it's mandatory to implement in the Transport Layer Security (TLS) protocol. The underlying `ChaCha20` cipher is also widely used as a cryptographically secure random number generator, including internal use by the Rust standard library.
-- [`XChaCha20Poly1305`](https://en.wikipedia.org/wiki/ChaCha20-Poly1305#XChaCha20-Poly1305_%E2%80%93_extended_nonce_variant): A variant of `ChaCha20Poly1305` with an extended 192-bit (24-byte) nonce.  
-This has been audited also.
+  While it hasn't received approval from certain standards bodies (i.e. NIST) the algorithm is widely used and deployed.
+  Notably it's mandatory to implement in the Transport Layer Security (TLS) protocol. The underlying `ChaCha20` cipher
+  is also widely used as a cryptographically secure random number generator, including internal use by the Rust standard
+  library.
+- [`XChaCha20Poly1305`](https://en.wikipedia.org/wiki/ChaCha20-Poly1305#XChaCha20-Poly1305_%E2%80%93_extended_nonce_variant):
+  A variant of `ChaCha20Poly1305` with an extended 192-bit (24-byte) nonce.
 
 ## Not audited
 
 **USE AT YOUR OWN RISK!**
 
-- [`Aes128GcmSiv` / `Aes256GcmSiv`](https://en.wikipedia.org/wiki/AES-GCM-SIV): Provides nonce reuse misuse resistance. Suitable as a general purpose symmetric encryption cipher, `AES-GCM-SIV` also removes many of the "sharp edges" of `AES-GCM`, providing significantly better security bounds while simultaneously eliminating the most catastrophic risks of nonce reuse that exist in `AES-GCM`. Decryption performance is equivalent to `AES-GCM`. Encryption is marginally slower.
-- [`Aes128Siv` / `Aes256Siv`](https://github.com/miscreant/meta/wiki/AES-SIV): Cipher which also provides nonce reuse misuse resistance.
-- [`Ascon128` / `Ascon128a` / `Ascon80pq`](https://ascon.iaik.tugraz.at): Designed to be lightweight and easy to implement, even with added countermeasures against side-channel attacks. Ascon has been selected as new standard for lightweight cryptography in the NIST Lightweight Cryptography competition (2019–2023). Ascon has also been selected as the primary choice for lightweight authenticated encryption in the final portfolio of the CAESAR competition (2014–2019).
-- [`Deoxys`](https://sites.google.com/view/deoxyscipher): Based on a 128-bit lightweight ad-hoc tweakable block cipher. It may be used in two modes to handle nonce-respecting users (`Deoxys-I`) or nonce-reusing user (`Deoxys-II`). `Deoxys-II` has been selected as first choice for the "in-depth security" portfolio of the `CAESAR` competition.
-- [`Aes128Eax` / `Aes256Eax`](https://en.wikipedia.org/wiki/EAX_mode): Designed with a two-pass scheme, one pass for achieving privacy and one for authenticity for each block. `EAX` mode was submitted on October 3, 2003, to the attention of NIST in order to replace `CCM` as standard `AEAD` mode of operation, since `CCM` mode lacks some desirable attributes of `EAX` and is more complex.
-- For `Sodiumoxide` provider [`ChaCha20Poly1305`](https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/original_chacha20-poly1305_construction): The original `ChaCha20-Poly1305` construction can safely encrypt a pratically unlimited number of messages with the same key, without any practical limit to the size of a message (up to ~ 2^64 bytes).
-- For `Sodiumoxide` provider [`ChaChaCha20Poly1305Ieft`](https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction): The IETF variant of the `ChaCha20-Poly1305` construction can safely encrypt a practically unlimited number of messages, but individual messages cannot exceed 64*(2^32)-64 bytes (approximatively 256 GB).
+- [`Aes128GcmSiv` / `Aes256GcmSiv`](https://en.wikipedia.org/wiki/AES-GCM-SIV): Provides nonce reuse misuse resistance.
+  Suitable as a general purpose symmetric encryption cipher, `AES-GCM-SIV` also removes many of the "sharp edges"
+  of `AES-GCM`, providing significantly better security bounds while simultaneously eliminating the most catastrophic
+  risks of nonce reuse that exist in `AES-GCM`. Decryption performance is equivalent to `AES-GCM`. Encryption is
+  marginally slower.
+- [`Aes128Siv` / `Aes256Siv`](https://github.com/miscreant/meta/wiki/AES-SIV): Cipher which also provides nonce reuse
+  misuse resistance.
+- [`Ascon128` / `Ascon128a` / `Ascon80pq`](https://ascon.iaik.tugraz.at): Designed to be lightweight and easy to
+  implement, even with added countermeasures against side-channel attacks. Ascon has been selected as new standard for
+  lightweight cryptography in the NIST Lightweight Cryptography competition (2019–2023). Ascon has also been selected as
+  the primary choice for lightweight authenticated encryption in the final portfolio of the CAESAR competition (
+  2014–2019).
+- [`Deoxys`](https://sites.google.com/view/deoxyscipher): Based on a 128-bit lightweight ad-hoc tweakable block cipher.
+  It may be used in two modes to handle nonce-respecting users (`Deoxys-I`) or nonce-reusing
+  user (`Deoxys-II`). `Deoxys-II` has been selected as first choice for the "in-depth security" portfolio of
+  the `CAESAR` competition.
+- [`Aes128Eax` / `Aes256Eax`](https://en.wikipedia.org/wiki/EAX_mode): Designed with a two-pass scheme, one pass for
+  achieving privacy and one for authenticity for each block. `EAX` mode was submitted on October 3, 2003, to the
+  attention of NIST in order to replace `CCM` as standard `AEAD` mode of operation, since `CCM` mode lacks some
+  desirable attributes of `EAX` and is more complex.
+- For `Sodiumoxide`
+  provider [`ChaCha20Poly1305`](https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/original_chacha20-poly1305_construction):
+  The original `ChaCha20-Poly1305` construction can safely encrypt a pratically unlimited number of messages with the
+  same key, without any practical limit to the size of a message (up to ~ 2^64 bytes).
+- For `Sodiumoxide`
+  provider [`ChaChaCha20Poly1305Ieft`](https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction):
+  The IETF variant of the `ChaCha20-Poly1305` construction can safely encrypt a practically unlimited number of
+  messages, but individual messages cannot exceed 64*(2^32)-64 bytes (approximatively 256 GB).
 
 # Examples
 
-You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks.
-
-**On Windows you can mlock up to 128 KB by default. If you need more you need to first call `SetProcessWorkingSetSize` to increase the `dwMinimumWorkingSetSize`.**
-
-Here are few simple examples.
+You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and
+in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks. Here are few
+simple examples:
 
 ## Encrypt and decrypt with a buffer in memory
 
 `seal_in_place()`/`open_in_place()`
 
-This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
+This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext
+and ciphertext.
 
 ```python
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
@@ -637,6 +715,7 @@ if __name__ == "__main__":
         mlock(buf)
 
         aad = b"AAD"
+        # create our own nonce
         nonce = os.urandom(cipher_meta.nonce_len())
 
         # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
@@ -851,7 +930,8 @@ if __name__ == "__main__":
 
 `encrypt_from()`/`decrypt_from()`
 
-This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations when you can't directly collect the data to the buffer but have some data from somewhere else.
+This is a bit slower than handling data only via the buffer, especially for large plaintext, but there are situations
+when you can't directly collect the data to the buffer but have some data from somewhere else.
 
 ```python
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
@@ -949,7 +1029,8 @@ if __name__ == "__main__":
 
 ## Zeroing memory before forking child process
 
-This mitigates the problems that appears on [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write). You need to zeroize the data before forking the child process.
+This mitigates the problems that appears on [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write). You need
+to zeroize the data before forking the child process.
 
 ```python
 import os
@@ -1035,7 +1116,7 @@ python benches/bench.py
 ![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-all.png?raw=true)
 
 **Decrypt**  
- ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-all.png?raw=true)
+![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-all.png?raw=true)
 
 **Block size and duration in seconds**
 
@@ -1239,28 +1320,29 @@ python benches/bench.py
 
 ## Speed throughput
 
-`256KB` seems to be the sweet spot for buffer size that offers the max `MB/s` speed for encryption, on benchmarks that seem to be the case.
+`256KB` seems to be the sweet spot for buffer size that offers the max `MB/s` speed for encryption, on benchmarks that
+seem to be the case.
 We performed `10.000` encryption operations for each size varying from `1KB` to `16MB`.
 
 ![Speed throughput](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/speed-throughput.png?raw=true)
 
-| MB    | MB/s |
-| ----- | ------- |
-| 0.0009765625 | 1083 |
-| 0.001953125 | 1580 |
-| 0.00390625 | 2158 |
-| 0.0078125 | 2873 |
-| 0.015625 | 3348 |
-| 0.03125 | 3731 |
-| 0.0625 | 4053 |
-| 0.125 | 4156 |
+| MB                                                       | MB/s                                                     |
+|----------------------------------------------------------|----------------------------------------------------------|
+| 0.0009765625                                             | 1083                                                     |
+| 0.001953125                                              | 1580                                                     |
+| 0.00390625                                               | 2158                                                     |
+| 0.0078125                                                | 2873                                                     |
+| 0.015625                                                 | 3348                                                     |
+| 0.03125                                                  | 3731                                                     |
+| 0.0625                                                   | 4053                                                     |
+| 0.125                                                    | 4156                                                     |
 | <span style="color: red; font-weight: bold;">0.25</span> | <span style="color: red; font-weight: bold;">4247</span> |
-| 0.5 | 4182 |
-| 1.0 | 3490 |
-| 2.0 | 3539 |
-| 4.0 | 3684 |
-| 8.0 | 3787 |
-| 16.0 | 3924 |
+| 0.5                                                      | 4182                                                     |
+| 1.0                                                      | 3490                                                     |
+| 2.0                                                      | 3539                                                     |
+| 4.0                                                      | 3684                                                     |
+| 8.0                                                      | 3787                                                     |
+| 16.0                                                     | 3924                                                     |
 
 # For the future
 
@@ -1270,24 +1352,31 @@ We performed `10.000` encryption operations for each size varying from `1KB` to 
 
 # Considerations
 
-This lib hasn't been audited, but it wraps `ring` crate (well known and audited library) and `RustCrypto` (`AES-GCM` and `ChaCha20Poly1305` ciphers are audited), so in principle at least the primitives should offer a similar level of security.
+This lib hasn't been audited, but it wraps `ring` crate (well known and audited library) and `RustCrypto` (`AES-GCM`
+and `ChaCha20Poly1305` ciphers are audited), so in principle at least the primitives should offer a similar level of
+security.
 
 # Contribute
 
-Feel free to fork it, change and use it in any way that you want. If you build something interesting and feel like sharing pull requests are always appreciated.
+Feel free to fork it, change and use it in any way that you want. If you build something interesting and feel like
+sharing pull requests are always appreciated.
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this project by you, as defined in the Apache License, shall be dual-licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this project by you, as
+defined in the Apache License, shall be dual-licensed as above, without any additional terms or conditions.
 
 ## How to contribute
 
 1. Fork the repo
 2. Make the changes in your fork
 3. Add tests for your changes, if applicable
-4. `cargo fmt --all`, you can cnofigure your IDE to do this on save [RustRover](https://www.jetbrains.com/help/rust/rustfmt.html) and [VSCode](https://code.visualstudio.com/docs/languages/rust#_formatting)
-5. `cargo check --all` and fix any errors and warnings
-6. `cargo clippy --all` and fix any errors
-7. `cargo test --all --all-features --release` and fix any issues
-8. Create a PR back to main repo
-9. Monitor the checks (GitHub actions runned)
-10. Respond to any comments
-11. In the end, ideally, it will be merged to `main`
+4. `cargo build --workspace --all-targets --all-features` and fix any issues
+5. `cargo fmt --all`, you can configure your IDE to do this on
+   save [RustRover](https://www.jetbrains.com/help/rust/rustfmt.html)
+   and [VSCode](https://code.visualstudio.com/docs/languages/rust#_formatting)
+6. `cargo check --workspace --all-targets` and fix any errors and warnings
+7. `cargo clippy --all-targets` and fix any errors
+8. `cargo test --all-targets --all-features` and fix any issues
+9. Create a PR
+10. Monitor the checks (GitHub actions run)
+11. Respond to any comments
+12. In the end ideally it will be merged to `main`

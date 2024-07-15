@@ -1,4 +1,21 @@
 #![deny(warnings)]
+#![doc(html_playground_url = "https://play.rust-lang.org")]
+#![deny(clippy::all)]
+#![deny(clippy::correctness)]
+#![deny(clippy::suspicious)]
+#![deny(clippy::complexity)]
+#![deny(clippy::perf)]
+#![deny(clippy::style)]
+#![deny(clippy::pedantic)]
+#![deny(clippy::nursery)]
+#![deny(clippy::cargo)]
+// #![deny(missing_docs)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::significant_drop_tightening)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::missing_errors_doc)]
+
 use ::secrets::SecretVec;
 use numpy::{PyArray1, PyArrayMethods};
 
@@ -177,7 +194,7 @@ fn split_plaintext_tag_nonce_mut(
     (plaintext, tag, nonce)
 }
 
-/// Slit plaintext__and_tag__and_nonce in (plaintext_and_tag, nonce)
+/// Slit `plaintext__and_tag__and_nonce` in `(plaintext_and_tag, nonce)`
 fn split_plaintext_and_tag_nonce_mut(
     data: &mut [u8],
     plaintext_and_tag_and_nonce_len: usize,
@@ -242,17 +259,17 @@ mod tests {
         copy_slice_concurrently(&mut dst, src, 16 * 1024);
         assert_eq!(dst, src);
 
-        let mut src = [0_u8; 1024 * 1024];
+        let mut src = vec![0_u8; 1024 * 1024].into_boxed_slice();
         create_rng().fill_bytes(&mut src);
         let mut dst = vec![0_u8; src.len()];
         copy_slice_concurrently(&mut dst, &src, 16 * 1024);
-        assert_eq!(dst, src);
+        assert_eq!(dst, src.to_vec());
     }
 
     #[test]
     fn test_par_chunks_mut() {
         let chunk_size = 512 * 1024;
-        let mut src = [0_u8; 1024 * 1024];
+        let mut src = vec![0_u8; 1024 * 1024].into_boxed_slice();
         create_rng().fill_bytes(&mut src);
         let mut dst = vec![0_u8; src.len()];
 
@@ -268,7 +285,7 @@ mod tests {
                 dst_chunk.copy_from_slice(src_chunk);
             });
 
-        assert_eq!(dst, src);
+        assert_eq!(dst, src.to_vec());
     }
 
     #[test]
@@ -278,11 +295,11 @@ mod tests {
         copy_slice_internal(&mut dst, src);
         assert_eq!(dst, src);
 
-        let mut src = [0_u8; 1024 * 1024];
+        let mut src = vec![0_u8; 1024 * 1024].into_boxed_slice();
         create_rng().fill_bytes(&mut src);
         let mut dst = vec![0_u8; src.len()];
         copy_slice_internal(&mut dst, &src);
-        assert_eq!(dst, src);
+        assert_eq!(dst, src.to_vec());
     }
 
     fn test_seal_and_open_in_place_inner(cipher_meta: CipherMeta) {
@@ -505,7 +522,7 @@ mod tests {
                 .unwrap();
 
             fout.write_all(&nonce).unwrap();
-            fout.write_all(&data).unwrap();
+            fout.write_all(data).unwrap();
             fout.write_all(tag.as_ref()).unwrap();
             block_index += 1;
         }
@@ -563,19 +580,19 @@ mod tests {
     #[test]
     fn test_seal_and_open_in_place() {
         for alg in RingAlgorithm::iter() {
-            println!("RingAlgorithm {:?}", alg);
+            println!("RingAlgorithm {alg:?}");
             test_seal_and_open_in_place_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
-            println!("RustCryptoAlgorithm {:?}", alg);
+            println!("RustCryptoAlgorithm {alg:?}");
             test_seal_and_open_in_place_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
-            println!("SodiumoxideAlgorithm {:?}", alg);
+            println!("SodiumoxideAlgorithm {alg:?}");
             test_seal_and_open_in_place_inner(Sodiumoxide { alg });
         }
         for alg in OrionAlgorithm::iter() {
-            println!("OrionAlgorithm {:?}", alg);
+            println!("OrionAlgorithm {alg:?}");
             test_seal_and_open_in_place_inner(Orion { alg });
         }
     }
@@ -583,19 +600,19 @@ mod tests {
     #[test]
     fn test_seal_and_open_in_place_nonce() {
         for alg in RingAlgorithm::iter() {
-            println!("RingAlgorithm {:?}", alg);
+            println!("RingAlgorithm {alg:?}");
             test_seal_and_open_in_place_nonce_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
-            println!("RustCryptoAlgorithm {:?}", alg);
+            println!("RustCryptoAlgorithm {alg:?}");
             test_seal_and_open_in_place_nonce_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
-            println!("SodiumoxideAlgorithm {:?}", alg);
+            println!("SodiumoxideAlgorithm {alg:?}");
             test_seal_and_open_in_place_nonce_inner(Sodiumoxide { alg });
         }
         for alg in OrionAlgorithm::iter() {
-            println!("OrionAlgorithm {:?}", alg);
+            println!("OrionAlgorithm {alg:?}");
             test_seal_and_open_in_place_nonce_inner(Orion { alg });
         }
     }
@@ -603,19 +620,19 @@ mod tests {
     #[test]
     fn test_encrypt_no_block_index() {
         for alg in RingAlgorithm::iter() {
-            println!("RingAlgorithm {:?}", alg);
+            println!("RingAlgorithm {alg:?}");
             test_encrypt_no_block_index_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
-            println!("RustCryptoAlgorithm {:?}", alg);
+            println!("RustCryptoAlgorithm {alg:?}");
             test_encrypt_no_block_index_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
-            println!("SodiumoxideAlgorithm {:?}", alg);
+            println!("SodiumoxideAlgorithm {alg:?}");
             test_encrypt_no_block_index_inner(Sodiumoxide { alg });
         }
         for alg in OrionAlgorithm::iter() {
-            println!("OrionAlgorithm {:?}", alg);
+            println!("OrionAlgorithm {alg:?}");
             test_encrypt_no_block_index_inner(Orion { alg });
         }
     }
@@ -623,19 +640,19 @@ mod tests {
     #[test]
     fn test_encrypt_no_aad() {
         for alg in RingAlgorithm::iter() {
-            println!("RingAlgorithm {:?}", alg);
+            println!("RingAlgorithm {alg:?}");
             test_encrypt_no_aad_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
-            println!("RustCryptoAlgorithm {:?}", alg);
+            println!("RustCryptoAlgorithm {alg:?}");
             test_encrypt_no_aad_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
-            println!("SodiumoxideAlgorithm {:?}", alg);
+            println!("SodiumoxideAlgorithm {alg:?}");
             test_encrypt_no_aad_inner(Sodiumoxide { alg });
         }
         for alg in OrionAlgorithm::iter() {
-            println!("OrionAlgorithm {:?}", alg);
+            println!("OrionAlgorithm {alg:?}");
             test_encrypt_no_aad_inner(Orion { alg });
         }
     }
@@ -643,19 +660,19 @@ mod tests {
     #[test]
     fn test_seal_and_open_in_place_file() {
         for alg in RingAlgorithm::iter() {
-            println!("RingAlgorithm {:?}", alg);
+            println!("RingAlgorithm {alg:?}");
             test_seal_and_open_in_place_file_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
-            println!("RustCryptoAlgorithm {:?}", alg);
+            println!("RustCryptoAlgorithm {alg:?}");
             test_seal_and_open_in_place_file_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
-            println!("SodiumoxideAlgorithm {:?}", alg);
+            println!("SodiumoxideAlgorithm {alg:?}");
             test_seal_and_open_in_place_file_inner(Sodiumoxide { alg });
         }
         for alg in OrionAlgorithm::iter() {
-            println!("OrionAlgorithm {:?}", alg);
+            println!("OrionAlgorithm {alg:?}");
             test_seal_and_open_in_place_file_inner(Orion { alg });
         }
     }

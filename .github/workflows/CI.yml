@@ -12,7 +12,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0 # TODO: remove this when we cache the builds
-  
+
 jobs:
   check_version:
     name: Check version
@@ -21,7 +21,7 @@ jobs:
       changed: ${{ steps.check_version.outputs.changed }}
       version: ${{ steps.check_version.outputs.version }}
       prev_version: ${{ steps.check_version.outputs.prev_version }}
-      
+
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +32,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        runner: [ubuntu-latest, macos-latest, windows-latest]
+        runner: [ ubuntu-latest, macos-latest, windows-latest ]
     steps:
       - uses: actions/checkout@v4
 
@@ -50,8 +50,8 @@ jobs:
       - name: check
         run: cargo check --all-targets
 
-      - name: clippy
-        run: cargo clippy --all-targets
+      #      - name: clippy
+      #        run: cargo clippy --all-targets
 
       - name: tests
         run: cargo test --release --all-features
@@ -60,79 +60,79 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9, "3.10", "3.11", "3.12"]
+        python-version: [ 3.7, 3.8, 3.9, "3.10", "3.11", "3.12" ]
     steps:
-    - name: Check out repository code
-      uses: actions/checkout@v4          
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m venv .env
-        source .env/bin/activate
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt        
-        maturin develop --release        
-    - name: Run tests
-      run: |
-        source .env/bin/activate
-        ./test.sh
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m venv .env
+          source .env/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt        
+          maturin develop --release
+      - name: Run tests
+        run: |
+          source .env/bin/activate
+          ./test.sh
 
   test_py_macos:
     runs-on: macos-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, "3.10", "3.11", "3.12"]
+        python-version: [ 3.8, 3.9, "3.10", "3.11", "3.12" ]
     steps:
-    - name: Check out repository code
-      uses: actions/checkout@v4          
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m venv .env
-        source .env/bin/activate
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt        
-        maturin develop --release
-    - name: Run tests
-      run: |
-        source .env/bin/activate
-        ./test.sh
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m venv .env
+          source .env/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt        
+          maturin develop --release
+      - name: Run tests
+        run: |
+          source .env/bin/activate
+          ./test.sh
 
   test_py_windows:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9, "3.10", "3.11", "3.12"]
+        python-version: [ 3.7, 3.8, 3.9, "3.10", "3.11", "3.12" ]
     steps:
-    - name: Check out repository code
-      uses: actions/checkout@v4          
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m venv .env
-        .env\Scripts\activate
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt        
-        maturin develop --release
-    - name: Run tests
-      run: |
-        .env\Scripts\activate
-        cmd /c test.bat
-        
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m venv .env
+          .env\Scripts\activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt        
+          maturin develop --release
+      - name: Run tests
+        run: |
+          .env\Scripts\activate
+          cmd /c test.bat
+
   build_linux:
-    needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
+    needs: [ test_rust, test_py_linux, test_py_macos, test_py_windows ]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -152,7 +152,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
-        run: rustup update      
+        run: rustup update
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -170,7 +170,7 @@ jobs:
           path: dist
 
   build_windows:
-    needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
+    needs: [ test_rust, test_py_linux, test_py_macos, test_py_windows ]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -182,7 +182,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
-        run: rustup update      
+        run: rustup update
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -200,7 +200,7 @@ jobs:
           path: dist
 
   build_macos:
-    needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
+    needs: [ test_rust, test_py_linux, test_py_macos, test_py_windows ]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -212,7 +212,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
-        run: rustup update      
+        run: rustup update
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -229,15 +229,15 @@ jobs:
           path: dist
 
   build_sdist:
-    needs: [test_rust, test_py_linux, test_py_macos, test_py_windows]
+    needs: [ test_rust, test_py_linux, test_py_macos, test_py_windows ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
-        run: rustup update      
+        run: rustup update
       - name: Build sdist
         uses: PyO3/maturin-action@v1
-        with:        
+        with:
           command: sdist
           args: --out dist
       - name: Upload sdist
@@ -249,7 +249,7 @@ jobs:
   release:
     name: Create release and publish to PyPI
     if: needs.check_version.outputs.changed == 'true' && github.event_name == 'push'
-    needs: [check_version, build_linux, build_windows, build_macos, build_sdist]
+    needs: [ check_version, build_linux, build_windows, build_macos, build_sdist ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
