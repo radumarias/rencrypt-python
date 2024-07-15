@@ -391,7 +391,7 @@ mod tests {
         assert_eq!(plaintext, plaintext2);
     }
 
-    fn test_encrypt_no_block_index_inner(cipher_meta: CipherMeta) {
+    fn test_seal_no_block_index_inner(cipher_meta: CipherMeta) {
         let key = SecretVec::new(cipher_meta.key_len(), |s| {
             create_rng().fill_bytes(s);
         });
@@ -427,7 +427,7 @@ mod tests {
         assert_eq!(plaintext, plaintext2);
     }
 
-    fn test_encrypt_no_aad_inner(cipher_meta: CipherMeta) {
+    fn test_seal_no_aad_inner(cipher_meta: CipherMeta) {
         let key = SecretVec::new(cipher_meta.key_len(), |s| {
             create_rng().fill_bytes(s);
         });
@@ -463,6 +463,7 @@ mod tests {
         assert_eq!(plaintext, plaintext2);
     }
 
+    #[allow(clippy::too_many_lines)]
     fn test_seal_and_open_in_place_file_inner(cipher_meta: CipherMeta) {
         let buf_size = 256 * 1024;
         let key = SecretVec::new(cipher_meta.key_len(), |s| {
@@ -474,9 +475,18 @@ mod tests {
         let overhead = cipher_meta.overhead();
         let mut plaintext = vec![0; file_len];
         create_rng().fill_bytes(&mut plaintext);
-        let plaintext_path = PathBuf::from("/tmp/rencrypt-test-plaintext");
-        let ciphertext_path = PathBuf::from("/tmp/rencrypt-test-ciphertext");
-        let plaintext2_path = PathBuf::from("/tmp/rencrypt-test-plaintext2");
+        let plaintext_path = PathBuf::from("tmp").join("rencrypt-test-plaintext");
+        if let Some(p) = plaintext_path.parent() {
+            fs::create_dir_all(p).unwrap();
+        }
+        let ciphertext_path = PathBuf::from("tmp").join("rencrypt-test-ciphertext");
+        if let Some(p) = ciphertext_path.parent() {
+            fs::create_dir_all(p).unwrap();
+        }
+        let plaintext2_path = PathBuf::from("tmp").join("rencrypt-test-plaintext2");
+        if let Some(p) = plaintext2_path.parent() {
+            fs::create_dir_all(p).unwrap();
+        }
         let mut fout = File::create(plaintext_path.clone()).unwrap();
         fout.write_all(&plaintext).unwrap();
         fout.flush().unwrap();
@@ -618,42 +628,42 @@ mod tests {
     }
 
     #[test]
-    fn test_encrypt_no_block_index() {
+    fn test_seal_no_block_index() {
         for alg in RingAlgorithm::iter() {
             println!("RingAlgorithm {alg:?}");
-            test_encrypt_no_block_index_inner(Ring { alg });
+            test_seal_no_block_index_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
             println!("RustCryptoAlgorithm {alg:?}");
-            test_encrypt_no_block_index_inner(RustCrypto { alg });
+            test_seal_no_block_index_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
             println!("SodiumoxideAlgorithm {alg:?}");
-            test_encrypt_no_block_index_inner(Sodiumoxide { alg });
+            test_seal_no_block_index_inner(Sodiumoxide { alg });
         }
         for alg in OrionAlgorithm::iter() {
             println!("OrionAlgorithm {alg:?}");
-            test_encrypt_no_block_index_inner(Orion { alg });
+            test_seal_no_block_index_inner(Orion { alg });
         }
     }
 
     #[test]
-    fn test_encrypt_no_aad() {
+    fn test_seal_no_aad() {
         for alg in RingAlgorithm::iter() {
             println!("RingAlgorithm {alg:?}");
-            test_encrypt_no_aad_inner(Ring { alg });
+            test_seal_no_aad_inner(Ring { alg });
         }
         for alg in RustCryptoAlgorithm::iter() {
             println!("RustCryptoAlgorithm {alg:?}");
-            test_encrypt_no_aad_inner(RustCrypto { alg });
+            test_seal_no_aad_inner(RustCrypto { alg });
         }
         for alg in SodiumoxideAlgorithm::iter() {
             println!("SodiumoxideAlgorithm {alg:?}");
-            test_encrypt_no_aad_inner(Sodiumoxide { alg });
+            test_seal_no_aad_inner(Sodiumoxide { alg });
         }
         for alg in OrionAlgorithm::iter() {
             println!("OrionAlgorithm {alg:?}");
-            test_encrypt_no_aad_inner(Orion { alg });
+            test_seal_no_aad_inner(Orion { alg });
         }
     }
 
