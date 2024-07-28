@@ -88,8 +88,8 @@ pub enum RustCryptoAlgorithm {
 pub enum SodiumoxideAlgorithm {
     ChaCha20Poly1305,
     #[default]
-    ChaCha20Poly1305Ieft,
-    XChaCha20Poly1305Ieft,
+    ChaCha20Poly1305Ietf,
+    XChaCha20Poly1305Ietf,
     // #[default]
     // Aes256Gcm,
 }
