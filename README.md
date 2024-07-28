@@ -464,8 +464,8 @@ enum RustCryptoAlgorithm {
 ```rust
 enum SodiumoxideAlgorithm {
     ChaCha20Poly1305,
-    ChaCha20Poly1305Ieft,
-    XChaCha20Poly1305Ieft,
+    ChaCha20Poly1305Ietf,
+    XChaCha20Poly1305Ietf,
 }
 ```
 
