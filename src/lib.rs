@@ -1,4 +1,4 @@
-#![deny(warnings)]
+#![cfg_attr(not(debug_assertions), deny(warnings))]
 #![doc(html_playground_url = "https://play.rust-lang.org")]
 #![deny(clippy::all)]
 #![deny(clippy::correctness)]
@@ -15,7 +15,6 @@
 #![allow(clippy::significant_drop_tightening)]
 #![allow(clippy::redundant_closure)]
 #![allow(clippy::missing_errors_doc)]
-
 use ::secrets::SecretVec;
 use numpy::{PyArray1, PyArrayMethods};
 
