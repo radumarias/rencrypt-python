@@ -12,8 +12,7 @@
 8. `cargo fmt --all`, you can configure your **IDE** to do this on
    save, [RustRover](https://www.jetbrains.com/help/rust/rustfmt.html)
    and [VSCode](https://code.visualstudio.com/docs/languages/rust#_formatting)
-9. `./check-before-push.sh` or `cmd /c check-before-push.bat` and fix any errors
-10. Create a **PR** back to **main** repo to the `main` branch
-11. Monitor the checks (GitHub actions run)
-12. Respond to any comments
-13. In the end, ideally, it will be merged to `main`
+0. Create a **PR** back to **main** repo to the `main` branch
+10. Monitor the checks (GitHub actions run)
+11. Respond to any comments
+12. In the end, ideally, it will be merged to `main`
