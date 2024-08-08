@@ -1,4 +1,5 @@
-# This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for plaintext and ciphertext.
+# This is the most performant way to use it as it will not copy bytes to the buffer nor allocate new memory for
+# plaintext and ciphertext.
 
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import os
@@ -38,6 +39,7 @@ def setup_memory_limit():
         error_message = ctypes.FormatError(error_code)
         raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
+
 if __name__ == "__main__":
     try:
         setup_memory_limit()
@@ -46,7 +48,7 @@ if __name__ == "__main__":
         cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
-        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        # for security reasons, we lock the memory of the key, so it won't be swapped to disk
         mlock(key)
         cipher_meta.generate_key(key)
         # The key is copied and the input key is zeroized for security reasons.
@@ -60,21 +62,23 @@ if __name__ == "__main__":
         plaintext_len = 4096
         ciphertext_len = cipher_meta.ciphertext_len(plaintext_len)
         buf = np.array([0] * ciphertext_len, dtype=np.uint8)
-        # for security reasons we lock the memory of the buffer so it won't be swapped to disk, because it contains plaintext after decryption
+        # for security reasons, we lock the memory of the buffer, so it won't be swapped to disk, because it contains
+        # plaintext after decryption
         mlock(buf)
 
         aad = b"AAD"
 
-        # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer without allocating new memory
-        # but for the sake of example we will allocate and copy the data
+        # put some plaintext in the buffer, it would be ideal if you can directly collect the data into the buffer
+        # without allocating new memory, but for the sake of example, we will allocate and copy the data
         plaintext = bytearray(os.urandom(plaintext_len))
-        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        # for security reasons, we lock the memory of the plaintext, so it won't be swapped to disk
         mlock(plaintext)
-        # cipher.copy_slice is slighlty faster than buf[:plaintext_len] = plaintext, especially for large plaintext, because it copies the data in parallel
-        # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
+        # cipher.copy_slice is slightly faster than buf[:plaintext_len] = plaintext, especially for large plaintext,
+        # because it copies the data in parallel cipher.copy_slice takes bytes as input,
+        # cipher.copy_slice1 takes bytearray
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
-        print("encryping...")
+        print("encrypting...")
         ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad)
         cipertext = buf[:ciphertext_len]
         # you can do something with the ciphertext
@@ -82,15 +86,16 @@ if __name__ == "__main__":
         # decrypt it
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
         # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
-        print("decryping...")
+        print("decrypting...")
         plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad)
         plaintext2 = buf[:plaintext_len]
-        # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
+        # for security reasons, we lock the memory of the plaintext, so it won't be swapped to disk
         mlock(plaintext2)
         assert plaintext == plaintext2
 
     finally:
-        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be
+        # zeroized when the enc object is dropped)
         zeroize1(plaintext)
         zeroize1(buf)
 

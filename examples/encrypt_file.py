@@ -3,6 +3,7 @@ import io
 import os
 from pathlib import Path
 import shutil
+
 from rencrypt import Cipher, CipherMeta, RingAlgorithm
 import hashlib
 from zeroize import zeroize1, mlock, munlock
@@ -41,6 +42,7 @@ def setup_memory_limit():
         error_message = ctypes.FormatError(error_code)
         raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
+
 def read_file_in_chunks(file_path, buf):
     with open(file_path, "rb") as file:
         buffered_reader = io.BufferedReader(file, buffer_size=len(buf))
@@ -63,7 +65,7 @@ def compare_files_by_hash(file1, file2):
     return hash_file(file1) == hash_file(file2)
 
 
-def silentremove(filename):
+def silent_remove(filename):
     try:
         os.remove(filename)
     except OSError as e:  # this would be "except OSError, e:" before Python 2.6
@@ -116,7 +118,7 @@ if __name__ == "__main__":
         cipher_meta = CipherMeta.Ring(RingAlgorithm.Aes256Gcm)
         key_len = cipher_meta.key_len()
         key = bytearray(key_len)
-        # for security reasons we lock the memory of the key so it won't be swapped to disk
+        # for security reasons, we lock the memory of the key so it won't be swapped to disk
         mlock(key)
         cipher_meta.generate_key(key)
         # The key is copied and the input key is zeroized for security reasons.
@@ -134,7 +136,7 @@ if __name__ == "__main__":
         aad = os.urandom(16)
 
         # encrypt
-        print("encryping...")
+        print("encrypting...")
         with open(fout, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fin, buf[:plaintext_len]):
@@ -144,7 +146,7 @@ if __name__ == "__main__":
             file_out.flush()
 
         # decrypt
-        print("decryping...")
+        print("decrypting...")
         tmp = fout + ".dec"
         with open(tmp, "wb", buffering=plaintext_len) as file_out:
             i = 0
@@ -159,8 +161,9 @@ if __name__ == "__main__":
         delete_dir(tmp_dir)
 
     finally:
-        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be zeroized when the enc object is dropped)
-        # buf will containt the last block plaintext so we need to zeroize it
+        # best practice, you should always zeroize the plaintext and keys after you are done with it (key will be
+        # zeroized when the enc object is dropped)
+        # buf will contain the last block plaintext, so we need to zeroize it
         zeroize1(buf)
 
         munlock(buf)

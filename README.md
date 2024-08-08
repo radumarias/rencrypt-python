@@ -584,6 +584,7 @@ def setup_memory_limit():
         error_message = ctypes.FormatError(error_code)
         raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
+
 if __name__ == "__main__":
     try:
         setup_memory_limit()
@@ -620,7 +621,7 @@ if __name__ == "__main__":
         # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
-        print("encryping...")
+        print("encrypting...")
         ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad)
         cipertext = buf[:ciphertext_len]
         # you can do something with the ciphertext
@@ -628,7 +629,7 @@ if __name__ == "__main__":
         # decrypt it
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
         # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
-        print("decryping...")
+        print("decrypting...")
         plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
@@ -689,6 +690,7 @@ def setup_memory_limit():
         error_message = ctypes.FormatError(error_code)
         raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
+
 if __name__ == "__main__":
     try:
         setup_memory_limit()
@@ -727,7 +729,7 @@ if __name__ == "__main__":
         # cipher.copy_slice takes bytes as input, cipher.copy_slice1 takes bytearray
         cipher.copy_slice(plaintext, buf)
         # encrypt it, this will encrypt in-place the data in the buffer
-        print("encryping...")
+        print("encrypting...")
         ciphertext_len = cipher.seal_in_place(buf, plaintext_len, 42, aad, nonce)
         cipertext = buf[:ciphertext_len]
         # you can do something with the ciphertext
@@ -735,7 +737,7 @@ if __name__ == "__main__":
         # decrypt it
         # if you need to copy ciphertext to buffer, we don't need to do it now as it's already in the buffer
         # cipher.copy_slice(ciphertext, buf[:len(ciphertext)])
-        print("decryping...")
+        print("decrypting...")
         plaintext_len = cipher.open_in_place(buf, ciphertext_len, 42, aad, nonce)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
@@ -798,6 +800,7 @@ def setup_memory_limit():
         error_code = ctypes.get_last_error()
         error_message = ctypes.FormatError(error_code)
         raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
+
 
 def read_file_in_chunks(file_path, buf):
     with open(file_path, "rb") as file:
@@ -892,7 +895,7 @@ if __name__ == "__main__":
         aad = os.urandom(16)
 
         # encrypt
-        print("encryping...")
+        print("encrypting...")
         with open(fout, "wb", buffering=plaintext_len) as file_out:
             i = 0
             for read in read_file_in_chunks(fin, buf[:plaintext_len]):
@@ -902,7 +905,7 @@ if __name__ == "__main__":
             file_out.flush()
 
         # decrypt
-        print("decryping...")
+        print("decrypting...")
         tmp = fout + ".dec"
         with open(tmp, "wb", buffering=plaintext_len) as file_out:
             i = 0
@@ -972,6 +975,7 @@ def setup_memory_limit():
         error_message = ctypes.FormatError(error_code)
         raise RuntimeError(f"SetProcessWorkingSetSize failed with error code {error_code}: {error_message}")
 
+
 if __name__ == "__main__":
     try:
         setup_memory_limit()
@@ -1004,12 +1008,12 @@ if __name__ == "__main__":
         mlock(plaintext)
 
         # encrypt it, after this will have the ciphertext in the buffer
-        print("encryping...")
+        print("encrypting...")
         ciphertext_len = cipher.seal_in_place_from(plaintext, buf, 42, aad)
         cipertext = bytes(buf[:ciphertext_len])
 
         # decrypt it
-        print("decryping...")
+        print("decrypting...")
         plaintext_len = cipher.open_in_place_from(cipertext, buf, 42, aad)
         plaintext2 = buf[:plaintext_len]
         # for security reasons we lock the memory of the plaintext so it won't be swapped to disk
@@ -1036,7 +1040,6 @@ to zeroize the data before forking the child process.
 import os
 from zeroize import zeroize1, mlock, munlock
 
-
 if __name__ == "__main__":
     try:
         # Maximum you can mlock is 4MB
@@ -1056,7 +1059,7 @@ if __name__ == "__main__":
         else:
             # This is the parent process
             os.wait()  # Wait for the child process to exit
-        
+
         print("all good, bye!")
 
     finally:
