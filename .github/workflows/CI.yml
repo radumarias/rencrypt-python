@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup Rust
+      - name: rustup
         run: rustup update
 
       - name: build
