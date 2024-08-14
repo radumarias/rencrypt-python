@@ -41,13 +41,13 @@ impl SodiumoxideCipher {
                     "invalid key length",
                 ))?,
             ),
-            SodiumoxideAlgorithm::ChaCha20Poly1305Ieft => CipherInner::ChaCha20Poly1305Ietf(
+            SodiumoxideAlgorithm::ChaCha20Poly1305Ietf => CipherInner::ChaCha20Poly1305Ietf(
                 chacha20poly1305_ietf::Key::from_slice(&key.borrow()).ok_or(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "invalid key length",
                 ))?,
             ),
-            SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => CipherInner::XChaCha20Poly1305Ietf(
+            SodiumoxideAlgorithm::XChaCha20Poly1305Ietf => CipherInner::XChaCha20Poly1305Ietf(
                 xchacha20poly1305_ietf::Key::from_slice(&key.borrow()).ok_or(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "invalid key length",
@@ -124,14 +124,12 @@ impl Cipher for SodiumoxideCipher {
                 chacha20poly1305::open_detached(
                     ciphertext,
                     Some(&aad),
-                    &chacha20poly1305::Tag::from_slice(tag).ok_or(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid tag length",
-                    ))?,
-                    &chacha20poly1305::Nonce::from_slice(nonce).ok_or(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid nonce length",
-                    ))?,
+                    &chacha20poly1305::Tag::from_slice(tag).ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "invalid tag length")
+                    })?,
+                    &chacha20poly1305::Nonce::from_slice(nonce).ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "invalid nonce length")
+                    })?,
                     key,
                 )
                 .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
@@ -140,14 +138,12 @@ impl Cipher for SodiumoxideCipher {
                 chacha20poly1305_ietf::open_detached(
                     ciphertext,
                     Some(&aad),
-                    &chacha20poly1305_ietf::Tag::from_slice(tag).ok_or(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid tag length",
-                    ))?,
-                    &chacha20poly1305_ietf::Nonce::from_slice(nonce).ok_or(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid nonce length",
-                    ))?,
+                    &chacha20poly1305_ietf::Tag::from_slice(tag).ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "invalid tag length")
+                    })?,
+                    &chacha20poly1305_ietf::Nonce::from_slice(nonce).ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "invalid nonce length")
+                    })?,
                     key,
                 )
                 .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
@@ -156,71 +152,59 @@ impl Cipher for SodiumoxideCipher {
                 xchacha20poly1305_ietf::open_detached(
                     ciphertext,
                     Some(&aad),
-                    &xchacha20poly1305_ietf::Tag::from_slice(tag).ok_or(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid tag length",
-                    ))?,
-                    &xchacha20poly1305_ietf::Nonce::from_slice(nonce).ok_or(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid nonce length",
-                    ))?,
+                    &xchacha20poly1305_ietf::Tag::from_slice(tag).ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "invalid tag length")
+                    })?,
+                    &xchacha20poly1305_ietf::Nonce::from_slice(nonce).ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "invalid nonce length")
+                    })?,
                     key,
                 )
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
-            } // CipherInner::Aes256Gcm(cipher, key) => {
-              //     cipher
-              //         .open_detached(
-              //             ciphertext,
-              //             Some(&aad),
-              //             &aes256gcm::Tag::from_slice(tag).ok_or(io::Error::new(io::ErrorKind::InvalidData, "invalid tag length"))?,
-              //             &aes256gcm::Nonce::from_slice(nonce).ok_or(io::Error::new(io::ErrorKind::InvalidData, "invalid nonce length"))?,
-              //             key,
-              //         )
-              //         .map_err(|_| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
-              // }
+                .map_err(|()| io::Error::new(io::ErrorKind::Other, "decryption failed"))?;
+            }
         };
 
         Ok(ciphertext)
     }
 }
 
-pub(super) fn key_len(algorithm: SodiumoxideAlgorithm) -> usize {
+pub(super) const fn key_len(algorithm: SodiumoxideAlgorithm) -> usize {
     match algorithm {
         SodiumoxideAlgorithm::ChaCha20Poly1305 => {
             sodiumoxide::crypto::aead::chacha20poly1305::KEYBYTES
         }
-        SodiumoxideAlgorithm::ChaCha20Poly1305Ieft => {
+        SodiumoxideAlgorithm::ChaCha20Poly1305Ietf => {
             sodiumoxide::crypto::aead::chacha20poly1305_ietf::KEYBYTES
         }
-        SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
+        SodiumoxideAlgorithm::XChaCha20Poly1305Ietf => {
             sodiumoxide::crypto::aead::xchacha20poly1305_ietf::KEYBYTES
         } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::KEYBYTES,
     }
 }
 
-pub(super) fn nonce_len(algorithm: SodiumoxideAlgorithm) -> usize {
+pub(super) const fn nonce_len(algorithm: SodiumoxideAlgorithm) -> usize {
     match algorithm {
         SodiumoxideAlgorithm::ChaCha20Poly1305 => {
             sodiumoxide::crypto::aead::chacha20poly1305::NONCEBYTES
         }
-        SodiumoxideAlgorithm::ChaCha20Poly1305Ieft => {
+        SodiumoxideAlgorithm::ChaCha20Poly1305Ietf => {
             sodiumoxide::crypto::aead::chacha20poly1305_ietf::NONCEBYTES
         }
-        SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
+        SodiumoxideAlgorithm::XChaCha20Poly1305Ietf => {
             sodiumoxide::crypto::aead::xchacha20poly1305_ietf::NONCEBYTES
         } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::NONCEBYTES,
     }
 }
 
-pub(super) fn tag_len(algorithm: SodiumoxideAlgorithm) -> usize {
+pub(super) const fn tag_len(algorithm: SodiumoxideAlgorithm) -> usize {
     match algorithm {
         SodiumoxideAlgorithm::ChaCha20Poly1305 => {
             sodiumoxide::crypto::aead::chacha20poly1305::TAGBYTES
         }
-        SodiumoxideAlgorithm::ChaCha20Poly1305Ieft => {
+        SodiumoxideAlgorithm::ChaCha20Poly1305Ietf => {
             sodiumoxide::crypto::aead::chacha20poly1305_ietf::TAGBYTES
         }
-        SodiumoxideAlgorithm::XChaCha20Poly1305Ieft => {
+        SodiumoxideAlgorithm::XChaCha20Poly1305Ietf => {
             sodiumoxide::crypto::aead::xchacha20poly1305_ietf::TAGBYTES
         } // SodiumoxideAlgorithm::Aes256Gcm => sodiumoxide::crypto::aead::aes256gcm::TAGBYTES,
     }
@@ -242,10 +226,9 @@ fn seal_in_place<'a>(
             chacha20poly1305::seal_detached(
                 plaintext,
                 Some(&aad),
-                &chacha20poly1305::Nonce::from_slice(nonce).ok_or(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "invalid nonce length",
-                ))?,
+                &chacha20poly1305::Nonce::from_slice(nonce).ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidData, "invalid nonce length")
+                })?,
                 key,
             )
             .0
@@ -254,10 +237,9 @@ fn seal_in_place<'a>(
             chacha20poly1305_ietf::seal_detached(
                 plaintext,
                 Some(&aad),
-                &chacha20poly1305_ietf::Nonce::from_slice(nonce).ok_or(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "invalid nonce length",
-                ))?,
+                &chacha20poly1305_ietf::Nonce::from_slice(nonce).ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidData, "invalid nonce length")
+                })?,
                 key,
             )
             .0
@@ -266,24 +248,13 @@ fn seal_in_place<'a>(
             xchacha20poly1305_ietf::seal_detached(
                 plaintext,
                 Some(&aad),
-                &xchacha20poly1305_ietf::Nonce::from_slice(nonce).ok_or(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "invalid nonce length",
-                ))?,
+                &xchacha20poly1305_ietf::Nonce::from_slice(nonce).ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidData, "invalid nonce length")
+                })?,
                 key,
             )
             .0
-        } // CipherInner::Aes256Gcm(cipher, key) => {
-          //     cipher
-          //         .seal_detached(
-          //             plaintext,
-          //             Some(&aad),
-          //             &aes256gcm::Nonce::from_slice(nonce).ok_or(io::Error::new(io::ErrorKind::InvalidData,
-          // "invalid nonce length"))?,
-          //             key,
-          //         )
-          //         .0
-          // }
+        }
     };
 
     tag_out.copy_from_slice(&tag);

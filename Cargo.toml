@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "rencrypt"
 description = "A Python encryption library implemented in Rust. It supports AEAD with varius ciphers. It uses ring, RustCrypto (and derivates), sodiumoxide and orion to handle encryption. \n If offers slightly higher speed compared to other Python libs, especially for small chunks of data (especially the Ring provider with AES-GCM ciphers). The API also tries to be easy to use but it's more optimized for speed than usability."
@@ -51,7 +53,14 @@ criterion = { version = "^0.5.1", features = ["html_reports"] }
 
 [profile.release]
 panic = "abort"
+# Treat warnings as errors in release builds
+rustflags = ["-Dwarnings"]
+lto = true
 
 [[bench]]
 name = "parallel_copy"
 harness = false
+
+[lints.clippy]
+too_many_arguments = "allow"
+module_name_repetitions = "allow"

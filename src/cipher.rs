@@ -9,7 +9,6 @@ use pyo3::types::PyByteArray;
 use pyo3::{pyclass, pymethods, Bound};
 use rand_core::RngCore;
 use secrets::SecretVec;
-use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumIter};
 
 use crate::cipher::ring::RingCipher;
@@ -22,7 +21,7 @@ pub(crate) mod rust_crypto;
 pub(crate) mod sodiumoxide;
 
 #[pyclass]
-#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, EnumIter, Display)]
 pub enum CipherMeta {
     Ring { alg: RingAlgorithm },
     RustCrypto { alg: RustCryptoAlgorithm },
@@ -31,7 +30,7 @@ pub enum CipherMeta {
 }
 
 #[allow(dead_code)]
-pub(crate) trait Cipher: Send + Sync {
+pub trait Cipher: Send + Sync {
     fn seal_in_place<'a>(
         &self,
         plaintext: &'a mut [u8],
@@ -52,7 +51,7 @@ pub(crate) trait Cipher: Send + Sync {
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Default)]
 pub enum RingAlgorithm {
     ChaCha20Poly1305,
     Aes128Gcm,
@@ -61,7 +60,7 @@ pub enum RingAlgorithm {
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Default)]
 pub enum RustCryptoAlgorithm {
     ChaCha20Poly1305,
     XChaCha20Poly1305,
@@ -84,7 +83,7 @@ pub enum RustCryptoAlgorithm {
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Default)]
 pub enum SodiumoxideAlgorithm {
     ChaCha20Poly1305,
     #[default]
@@ -95,7 +94,7 @@ pub enum SodiumoxideAlgorithm {
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Default)]
 pub enum OrionAlgorithm {
     #[default]
     ChaCha20Poly1305,
@@ -103,7 +102,7 @@ pub enum OrionAlgorithm {
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Copy, EnumIter, Display, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, EnumIter, Display, Default)]
 pub enum HPKEAlgorithm {
     Aes128Gcm,
     #[default]
@@ -114,24 +113,29 @@ pub enum HPKEAlgorithm {
 #[pymethods]
 impl CipherMeta {
     /// In bytes.
+    #[must_use]
     pub fn key_len(&self) -> usize {
         key_len(*self)
     }
 
     /// In bytes.
+    #[must_use]
     pub fn tag_len(&self) -> usize {
         tag_len(*self)
     }
 
     /// In bytes.
+    #[must_use]
     pub fn nonce_len(&self) -> usize {
         nonce_len(*self)
     }
 
+    #[must_use]
     pub fn overhead(&self) -> usize {
         overhead(*self)
     }
 
+    #[must_use]
     pub fn ciphertext_len(&self, plaintext_len: usize) -> usize {
         plaintext_len + overhead(*self)
     }
@@ -198,7 +202,7 @@ fn overhead(cipher_meta: CipherMeta) -> usize {
     tag_len(cipher_meta) + nonce_len(cipher_meta)
 }
 
-pub fn new_cipher(cipher_meta: CipherMeta, key: &SecretVec<u8>) -> io::Result<Box<dyn Cipher>> {
+pub fn new(cipher_meta: CipherMeta, key: &SecretVec<u8>) -> io::Result<Box<dyn Cipher>> {
     match cipher_meta {
         CipherMeta::Ring { alg } => Ok(Box::new(RingCipher::new(alg, key)?)),
         CipherMeta::RustCrypto { alg } => rust_crypto::new(alg, key),
@@ -208,18 +212,19 @@ pub fn new_cipher(cipher_meta: CipherMeta, key: &SecretVec<u8>) -> io::Result<Bo
 }
 
 #[allow(dead_code)]
+#[must_use]
 pub fn hash(data: &[u8]) -> [u8; 32] {
     let mut hasher = blake3::Hasher::new();
     hasher.update(data);
     hasher.finalize().into()
 }
 
-pub(crate) struct ExistingNonceSequence {
+pub struct ExistingNonceSequence {
     last_nonce: Arc<Mutex<Vec<u8>>>,
 }
 
 impl ExistingNonceSequence {
-    pub fn new(last_nonce: Arc<Mutex<Vec<u8>>>) -> Self {
+    pub const fn new(last_nonce: Arc<Mutex<Vec<u8>>>) -> Self {
         Self { last_nonce }
     }
 }
@@ -237,6 +242,7 @@ pub struct RandomNonceSequence {
 
 impl RandomNonceSequence {
     #[allow(dead_code)]
+    #[must_use]
     pub fn new(nonce_len: usize) -> Self {
         Self {
             rng: Box::new(crypto::create_rng()),
@@ -259,7 +265,7 @@ pub struct RandomNonceSequenceWrapper {
 
 impl RandomNonceSequenceWrapper {
     #[allow(dead_code)]
-    pub fn new(inner: Arc<Mutex<RandomNonceSequence>>) -> Self {
+    pub const fn new(inner: Arc<Mutex<RandomNonceSequence>>) -> Self {
         Self { inner }
     }
 }
@@ -277,6 +283,7 @@ pub struct HybridNonceSequence {
 }
 
 impl HybridNonceSequence {
+    #[must_use]
     pub fn new(nonce_len: usize) -> Self {
         Self {
             rng: Box::new(crypto::create_rng()),
@@ -302,7 +309,7 @@ pub struct HybridNonceSequenceWrapper {
 }
 
 impl HybridNonceSequenceWrapper {
-    pub fn new(inner: Arc<Mutex<HybridNonceSequence>>) -> Self {
+    pub const fn new(inner: Arc<Mutex<HybridNonceSequence>>) -> Self {
         Self { inner }
     }
 }
@@ -313,7 +320,7 @@ impl NonceSequence for HybridNonceSequenceWrapper {
     }
 }
 
-pub(crate) fn create_aad(block_index: Option<u64>, aad: Option<&[u8]>) -> Vec<u8> {
+pub fn create_aad(block_index: Option<u64>, aad: Option<&[u8]>) -> Vec<u8> {
     let len = {
         let mut len = 0;
         if let Some(aad) = aad {
@@ -326,15 +333,13 @@ pub(crate) fn create_aad(block_index: Option<u64>, aad: Option<&[u8]>) -> Vec<u8
     };
     let mut aad2 = vec![0_u8; len];
     let mut offset = 0;
-    aad.map(|aad| {
+    aad.inspect(|aad| {
         aad2[..aad.len()].copy_from_slice(aad);
         offset += aad.len();
-        aad
     });
-    block_index.map(|block_index| {
+    block_index.inspect(|block_index| {
         let block_index_bytes = block_index.to_le_bytes();
         aad2[offset..].copy_from_slice(&block_index_bytes);
-        block_index
     });
     aad2
 }

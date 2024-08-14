@@ -29,13 +29,13 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::{ParallelSlice, ParallelSliceMut};
 use zeroize::Zeroize;
 
-mod cipher;
-mod crypto;
-mod secrets;
+pub(crate) mod cipher;
+pub(crate) mod crypto;
+pub(crate) mod secrets;
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn rencrypt(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn rencrypt(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Cipher>()?;
     m.add_class::<CipherMeta>()?;
     m.add_class::<RingAlgorithm>()?;
@@ -56,16 +56,16 @@ impl Cipher {
     /// The key is copied and the input key is zeroized for security reasons.
     /// The copied key will also be zeroized when the object is dropped.
     #[new]
-    pub fn new(cipher_meta: CipherMeta, key: Bound<'_, PyAny>) -> PyResult<Self> {
-        let key_mut = as_array_mut(&key)?;
+    pub fn new(cipher_meta: CipherMeta, key: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let key_mut = as_array_mut(key)?;
         let key = SecretVec::<u8>::new(key_mut.len(), |s| {
             s.copy_from_slice(key_mut);
         });
         key_mut.zeroize();
 
         Ok(Self {
-            cipher: cipher::new_cipher(cipher_meta, &key)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?,
+            cipher: cipher::new(cipher_meta, &key)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))?,
             cipher_meta,
         })
     }
@@ -180,7 +180,7 @@ fn copy_slice(src: &[u8], dst: &mut [u8]) {
     }
 }
 
-/// Slit plaintext__and_tag__and_nonce in (plaintext, tag, nonce)
+/// Slit `plaintext_and_tag__and_nonce` in (`plaintext`, `tag`, `nonce`)
 fn split_plaintext_tag_nonce_mut(
     data: &mut [u8],
     plaintext_len: usize,
@@ -305,7 +305,7 @@ mod tests {
         let key = SecretVec::new(cipher_meta.key_len(), |s| {
             create_rng().fill_bytes(s);
         });
-        let cipher = cipher::new_cipher(cipher_meta, &key).unwrap();
+        let cipher = cipher::new(cipher_meta, &key).unwrap();
 
         let message_len = 256 * 1024;
         let overhead = cipher_meta.tag_len() + cipher_meta.nonce_len();
@@ -348,7 +348,7 @@ mod tests {
         let key = SecretVec::new(cipher_meta.key_len(), |s| {
             create_rng().fill_bytes(s);
         });
-        let cipher = cipher::new_cipher(cipher_meta, &key).unwrap();
+        let cipher = cipher::new(cipher_meta, &key).unwrap();
         let nonce = SecretVec::new(cipher_meta.nonce_len(), |s| {
             create_rng().fill_bytes(s);
         });
@@ -394,7 +394,7 @@ mod tests {
         let key = SecretVec::new(cipher_meta.key_len(), |s| {
             create_rng().fill_bytes(s);
         });
-        let cipher = cipher::new_cipher(cipher_meta, &key).unwrap();
+        let cipher = cipher::new(cipher_meta, &key).unwrap();
 
         let message_len = 4096;
         let overhead = cipher_meta.tag_len() + cipher_meta.nonce_len();
@@ -430,7 +430,7 @@ mod tests {
         let key = SecretVec::new(cipher_meta.key_len(), |s| {
             create_rng().fill_bytes(s);
         });
-        let cipher = cipher::new_cipher(cipher_meta, &key).unwrap();
+        let cipher = cipher::new(cipher_meta, &key).unwrap();
 
         let message_len = 4096;
         let overhead = cipher_meta.tag_len() + cipher_meta.nonce_len();
@@ -468,7 +468,7 @@ mod tests {
         let key = SecretVec::new(cipher_meta.key_len(), |s| {
             create_rng().fill_bytes(s);
         });
-        let cipher = cipher::new_cipher(cipher_meta, &key).unwrap();
+        let cipher = cipher::new(cipher_meta, &key).unwrap();
 
         let file_len = 10 * 1024 * 1024;
         let overhead = cipher_meta.overhead();
