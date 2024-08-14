@@ -29,11 +29,11 @@ jobs:
       - id: check_version
         uses: radumarias/action-check-version-changed-rust@v1
   
-  test_rust:
+  test_rust_macos_windows:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        runner: [ ubuntu-latest, macos-latest, windows-latest ]
+        runner: [macos-latest, windows-latest ]
     steps:
       - uses: actions/checkout@v4
 
@@ -57,6 +57,34 @@ jobs:
       - name: tests
         run: cargo test --release --all-features
 
+  test_rust_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install
+        run: apt-get install libatomic1
+
+      - uses: actions/checkout@v4
+
+      - name: rustup
+        run: rustup update
+
+      - name: build
+        run: |
+          cargo build --all-targets --all-features
+          cargo build --release --all-targets --all-features
+
+      - name: fmt check
+        run: cargo fmt --all --check
+
+      - name: check
+        run: cargo check --all-targets
+
+      # - name: clippy
+      #   run: cargo clippy --all-targets
+
+      - name: tests
+        run: cargo test --release --all-features
+        
   test_py_linux:
     runs-on: ubuntu-latest
     strategy:
@@ -132,8 +160,8 @@ jobs:
           .env\Scripts\activate
           cmd /c test.bat
 
-  build_linux:
-    needs: [ test_rust, test_py_linux, test_py_macos, test_py_windows ]
+  package_linux:
+    needs: [test_rust_linux, test_rust_macos_windows, test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -170,8 +198,8 @@ jobs:
           name: wheels-linux-${{ matrix.platform.target }}
           path: dist
 
-  build_windows:
-    needs: [ test_rust, test_py_linux, test_py_macos, test_py_windows ]
+  package_windows:
+    needs: [test_rust_linux, test_rust_macos_windows, test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -200,8 +228,8 @@ jobs:
           name: wheels-windows-${{ matrix.platform.target }}
           path: dist
 
-  build_macos:
-    needs: [ test_rust, test_py_linux, test_py_macos, test_py_windows ]
+  package_macos:
+    needs: [test_rust_linux, test_rust_macos_windows, test_py_linux, test_py_macos, test_py_windows]
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -229,8 +257,8 @@ jobs:
           name: wheels-macos-${{ matrix.platform.target }}
           path: dist
 
-  build_sdist:
-    needs: [ test_rust, test_py_linux, test_py_macos, test_py_windows ]
+  package_sdist:
+    needs: [test_rust_linux, test_rust_macos_windows, test_py_linux, test_py_macos, test_py_windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -250,7 +278,7 @@ jobs:
   release:
     name: Create release and publish to PyPI
     if: needs.check_version.outputs.changed == 'true' && github.event_name == 'push'
-    needs: [ check_version, build_linux, build_windows, build_macos, build_sdist ]
+    needs: [ check_version, package_linux, package_windows, package_macos, package_sdist ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
