@@ -247,7 +247,7 @@ def decrypt_from(block_len):
     for i in range(3):
         cipher.copy_slice(plaintext, buf[:plaintext_len])
         ciphertext_len = cipher.seal_in_place(buf, plaintext_len, i, aad)
-        ciphertext = buf[:ciphertext_len]
+        ciphertext = bytes(buf[:ciphertext_len])
 
         a = datetime.datetime.now()
 

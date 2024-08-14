@@ -295,10 +295,10 @@ def seal_and_open_in_place_from(this, cipher_meta):
 
     # encrypt it, after this will have the ciphertext in the buffer
     ciphertext_len = cipher.seal_in_place_from(plaintext, buf, 42, aad)
-    cipertext = bytes(buf[:ciphertext_len])
+    ciphertext = bytes(buf[:ciphertext_len])
 
     # decrypt it
-    plaintext_len = cipher.open_in_place_from(cipertext, buf, 42, aad)
+    plaintext_len = cipher.open_in_place_from(ciphertext, buf, 42, aad)
     plaintext2 = buf[:plaintext_len]
     this.assertEqual(plaintext, plaintext2)
 
