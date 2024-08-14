@@ -3,7 +3,7 @@
 [package]
 name = "rencrypt"
 description = "A Python encryption library implemented in Rust. It supports AEAD with varius ciphers. It uses ring, RustCrypto (and derivates), sodiumoxide and orion to handle encryption. \n If offers slightly higher speed compared to other Python libs, especially for small chunks of data (especially the Ring provider with AES-GCM ciphers). The API also tries to be easy to use but it's more optimized for speed than usability."
-version = "1.1.5"
+version = "1.2.0"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 authors = ["Radu Marias <radumarias@gmail.com>"]
