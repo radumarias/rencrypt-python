@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
 [![CI](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml)
 
-> [!WARNING]  
+> [!WARNING]
 > **This crate hasn't been audited, but it's mostly a wrapper over several libs like `ring` (well known and audited
 library),`RustCrypto` (`AES-GCM` and `ChaCha20Poly1305` ciphers are audited) but also others which are NOT audited, so
 in principle at least the primitives should offer a similar level of security.**
@@ -11,7 +11,7 @@ in principle at least the primitives should offer a similar level of security.**
 A Python encryption library implemented in Rust. It supports `AEAD` with varius ciphers. It
 uses [ring](https://crates.io/crates/ring), [RustCrypto](https://crates.io/crates/aead) (and
 derivates), [sodiumoxide](https://crates.io/crates/sodiumoxide) and [orion](https://crates.io/crates/orion) to handle
-encryption.  
+encryption.
 If offers slightly higher speed compared to other Python libs, especially for small chunks of data (especially
 the `Ring` provider with `AES-GCM` ciphers). The API also tries to be easy to use but it's more optimized for speed than
 usability.
@@ -27,13 +27,13 @@ fastest among other Python libs like `cryptography`, `NaCl` (`libsodium`), `PyCr
 ## Buffer in memory
 
 This is useful when you keep a buffer, set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that
-buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
+buffer. This is the most performant way to use it, because it does't copy any bytes nor allocate new memory.
 `rencrypt` is faster on small buffers, less than few MB, `PyFLocker` is comming closer for larger buffers.
 
-**Encrypt seconds**  
+**Encrypt seconds**
 ![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt.png?raw=true)
 
-**Decrypt seconds**  
+**Decrypt seconds**
 ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt.png?raw=true)
 
 **Block size and duration in seconds**
@@ -166,10 +166,10 @@ buffer. This is the most performant way to use it, because it does't copy any by
 
 ## File
 
-**Encrypt seconds**  
+**Encrypt seconds**
 ![Encrypt file](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-file.png?raw=true)
 
-**Decrypt seconds**  
+**Decrypt seconds**
 ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-file.png?raw=true)
 
 **File size and duration in seconds**
@@ -352,10 +352,10 @@ way to use it sacrificing a bit of performance.
 
 1. **With a buffer in memory**: using `seal_in_place()`/`open_in_place()`, is useful when you keep a buffer (or have it
    from somewhere), set your plaintext/ciphertext in there, and then encrypt/decrypt in-place in that buffer. This is
-   the most performant way to use it, because it does't copy any bytes nor allocate new memory.  
+   the most performant way to use it, because it does't copy any bytes nor allocate new memory.
    **The buffer has to be a `numpy array`**, so that it's easier for you to collect data with slices that reference to
    underlying data. This is because the whole buffer needs to be the size of ciphertext (which is plaintext_len +
-   tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.  
+   tag_len + nonce_len) but you may pass a slice of the buffer to a BufferedReader to `read_into()` the plaintext.
    If you can directly collect the data to that buffer, like `BufferedReader.read_into()`, **this is the preffered way
    to go**.
 2. **From some bytes into the buffer**: using `seal_in_place_from()`/`open_in_place_from()`, when you have some
@@ -407,10 +407,10 @@ enum CipherMeta {
 
 - `Ring`: Based on [ring](https://crates.io/crates/ring) crate. ring is focused on the implementation, testing, and
   optimization of a core set of cryptographic operations exposed via an easy-to-use (and hard-to-misuse) API. ring
-  exposes a Rust API and is written in a hybrid of Rust, C, and assembly language.  
+  exposes a Rust API and is written in a hybrid of Rust, C, and assembly language.
   Particular attention is being paid to making it easy to build and integrate ring into applications and higher-level
   frameworks, and to ensuring that ring works optimally on small devices, and eventually microcontrollers, to support
-  Internet of Things (IoT) applications.  
+  Internet of Things (IoT) applications.
   Most of the C and assembly language code in ring comes from BoringSSL, and BoringSSL is derived from OpenSSL. ring
   merges changes from BoringSSL regularly. Also, several changes that were developed for ring have been contributed to
   and integrated into BoringSSL.
@@ -418,11 +418,11 @@ enum CipherMeta {
   Associated Data (AEAD) algorithms written in pure Rust. AEADs are high-level symmetric encryption primitives which
   defend against a wide range of potential attacks (i.e. IND-CCA3).
 - `Sodiumoxide`: Based on [sodiumoxide](https://crates.io/crates/sodiumoxide) crate which aims to provide a type-safe
-  and efficient Rust binding that's just as easy to use.  
+  and efficient Rust binding that's just as easy to use.
   [`NaCl`](https://nacl.cr.yp.to) (pronounced "salt") is a new easy-to-use high-speed software library for network
   communication, encryption, decryption, signatures, etc. NaCl's goal is to provide all of the core operations needed to
   build higher-level cryptographic tools. Of course, other libraries already exist for these core operations. NaCl
-  advances the state of the art by improving security, by improving usability, and by improving speed.  
+  advances the state of the art by improving security, by improving usability, and by improving speed.
   [Sodium](https://github.com/jedisct1/libsodium) is a portable, cross-compilable, installable, packageable fork of
   NaCl (based on the latest released upstream version nacl-20110221), with a compatible API.
 - `Orion`: Based on [orion](https://crates.io/crates/orion) crate. Written in pure Rust, it aims to provide easy and
@@ -528,7 +528,7 @@ been audited.**
   The original `ChaCha20-Poly1305` construction can safely encrypt a pratically unlimited number of messages with the
   same key, without any practical limit to the size of a message (up to ~ 2^64 bytes).
 - For `Sodiumoxide`
-  provider [`ChaChaCha20Poly1305Ieft`](https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction):
+  provider [`ChaChaCha20Poly1305Ietf`](https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction):
   The IETF variant of the `ChaCha20-Poly1305` construction can safely encrypt a practically unlimited number of
   messages, but individual messages cannot exceed 64*(2^32)-64 bytes (approximatively 256 GB).
 
@@ -869,7 +869,7 @@ if __name__ == "__main__":
         tmp_dir = create_directory_in_home("rencrypt_tmp")
         fin = tmp_dir + "/" + "fin"
         fout = tmp_dir + "/" + "fout.enc"
-        create_file_with_size(fin, 10 * 1024 * 1024)
+        create_file_with_size(fin, 1 * 1024 * 1024)
 
         chunk_len = 256 * 1024
 
@@ -1115,10 +1115,10 @@ python benches/bench.py
 
 ## Different ways to use the lib
 
-**Encrypt**  
+**Encrypt**
 ![Encrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/encrypt-all.png?raw=true)
 
-**Decrypt**  
+**Decrypt**
 ![Decrypt buffer](https://github.com/radumarias/rencrypt-python/blob/main/resources/charts/decrypt-all.png?raw=true)
 
 **Block size and duration in seconds**

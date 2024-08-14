@@ -110,7 +110,7 @@ if __name__ == "__main__":
         tmp_dir = create_directory_in_home("rencrypt_tmp")
         fin = tmp_dir + "/" + "fin"
         fout = tmp_dir + "/" + "fout.enc"
-        create_file_with_size(fin, 10 * 1024 * 1024)
+        create_file_with_size(fin, 1 * 1024 * 1024)
 
         chunk_len = 256 * 1024
 

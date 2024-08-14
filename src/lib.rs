@@ -470,19 +470,19 @@ mod tests {
         });
         let cipher = cipher::new(cipher_meta, &key).unwrap();
 
-        let file_len = 10 * 1024 * 1024;
+        let file_len = 1 * 1024 * 1024;
         let overhead = cipher_meta.overhead();
         let mut plaintext = vec![0; file_len];
         create_rng().fill_bytes(&mut plaintext);
-        let plaintext_path = PathBuf::from("tmp").join("rencrypt-test-plaintext");
+        let plaintext_path = PathBuf::from("/tmp").join("rencrypt-test-plaintext");
         if let Some(p) = plaintext_path.parent() {
             fs::create_dir_all(p).unwrap();
         }
-        let ciphertext_path = PathBuf::from("tmp").join("rencrypt-test-ciphertext");
+        let ciphertext_path = PathBuf::from("/tmp").join("rencrypt-test-ciphertext");
         if let Some(p) = ciphertext_path.parent() {
             fs::create_dir_all(p).unwrap();
         }
-        let plaintext2_path = PathBuf::from("tmp").join("rencrypt-test-plaintext2");
+        let plaintext2_path = PathBuf::from("/tmp").join("rencrypt-test-plaintext2");
         if let Some(p) = plaintext2_path.parent() {
             fs::create_dir_all(p).unwrap();
         }
