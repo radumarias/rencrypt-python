@@ -33,7 +33,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        runner: [macos-latest, windows-latest ]
+        # runner: [macos-latest, windows-latest ]
+        runner: [windows-latest ]
     steps:
       - uses: actions/checkout@v4
 
