@@ -1,4 +1,4 @@
-cargo-features = ["profile-rustflags"]
+# cargo-features = ["profile-rustflags"]
 
 [package]
 name = "rencrypt"
@@ -54,7 +54,7 @@ criterion = { version = "^0.5.1", features = ["html_reports"] }
 [profile.release]
 panic = "abort"
 # Treat warnings as errors in release builds
-rustflags = ["-Dwarnings"]
+# rustflags = ["-Dwarnings"]
 lto = true
 
 [[bench]]
