@@ -1,7 +1,7 @@
 # rencrypt
 
 [![PyPI version](https://badge.fury.io/py/rencrypt.svg)](https://badge.fury.io/py/rencrypt)
-[![ci](https://github.com/radumarias/rencrypt-python/actions/workflows/CI.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/ci.yml)
+[![ci](https://github.com/radumarias/rencrypt-python/actions/workflows/ci.yml/badge.svg)](https://github.com/radumarias/rencrypt-python/actions/workflows/ci.yml)
 
 > [!WARNING]
 > **This crate hasn't been audited, but it's mostly a wrapper over several libs like `ring` (well known and audited
