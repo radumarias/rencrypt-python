@@ -383,7 +383,7 @@ random nonce using `ChaCha20`. You can also provide your own nonce, there is an 
   passwords or encrryption keys, or any other plaintext sensitive content. Also it's important to zeroize the data when
   not used anymore.**
 - **In the case of [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write) you need to zeroize the memory
-  before forking the child process.**. See here and [example](https://github.com/radumarias/zeroize-python?tab=readme-ov-file#zeroing-memory-before-forking-child-process) for Python.
+  before forking the child process.**. See here an [example](https://github.com/radumarias/zeroize-python?tab=readme-ov-file#zeroing-memory-before-forking-child-process) for Python.
 
 In the examples below you will see how to do it.
 
