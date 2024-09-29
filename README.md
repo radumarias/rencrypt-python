@@ -366,7 +366,7 @@ way to use it sacrificing a bit of performance.
 `block_index`, `aad` and `nonce` are optional.
 
 If `nonce` is not provided, on each encrypt operation (`seal_in_place*()`) it will generate a cryptographically secure
-random nonce using `ChaCha20`. You can also provide your own nonce, there is an example below.
+random nonce using `ChaCha20`. You can also provide your own nonce. The [Encrypt and decrypt with a buffer in memory](#encrypt-and-decrypt-with-a-buffer-in-memory) section has an example.
 
 # Security
 
@@ -383,9 +383,7 @@ random nonce using `ChaCha20`. You can also provide your own nonce, there is an 
   passwords or encrryption keys, or any other plaintext sensitive content. Also it's important to zeroize the data when
   not used anymore.**
 - **In the case of [Copy-on-write fork](https://en.wikipedia.org/wiki/Copy-on-write) you need to zeroize the memory
-  before forking the child process**. See here an [example](https://github.com/radumarias/zeroize-python?tab=readme-ov-file#zeroing-memory-before-forking-child-process) for Python.
-
-In the examples below you will see how to do it.
+  before forking the child process**. An [example](#zeroing-memory-before-forking-child-process) using [zeroize-python](https://github.com/radumarias/zeroize-python) is mentioned below.
 
 # Encryption providers and algorithms (ciphers)
 
@@ -535,7 +533,7 @@ been audited.**
 # Examples
 
 You can see more in [examples](https://github.com/radumarias/rencrypt-python/tree/main/examples) directory and
-in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/bench.py) which has some benchmarks. Here are few
+in [bench.py](https://github.com/radumarias/rencrypt-python/tree/main/benches/bench.py) which has some benchmarks. Here are few
 simple examples:
 
 ## Encrypt and decrypt with a buffer in memory
